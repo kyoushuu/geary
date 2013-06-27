@@ -20,16 +20,16 @@ public class Geary.RFC822.MailboxAddresses : Geary.MessageData.AbstractMessageDa
     }
     
     public MailboxAddresses.from_rfc822_string(string rfc822) {
-        InternetAddressList addrlist = InternetAddressList.parse_string(rfc822);
+        GMime.InternetAddressList addrlist = GMime.InternetAddressList.parse_string(rfc822);
         if (addrlist == null)
             return;
 
         int length = addrlist.length();
         for (int ctr = 0; ctr < length; ctr++) {
-            InternetAddress? addr = addrlist.get_address(ctr);
+            GMime.InternetAddress? addr = addrlist.get_address(ctr);
             
             // TODO: Handle group lists
-            InternetAddressMailbox? mbox_addr = addr as InternetAddressMailbox;
+            GMime.InternetAddressMailbox? mbox_addr = addr as GMime.InternetAddressMailbox;
             if (mbox_addr == null)
                 continue;
             

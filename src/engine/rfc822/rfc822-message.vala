@@ -339,7 +339,7 @@ public class Geary.RFC822.Message : BaseObject {
         }
     }
     
-    private Gee.List<RFC822.MailboxAddress>? convert_gmime_address_list(InternetAddressList? addrlist,
+    private Gee.List<RFC822.MailboxAddress>? convert_gmime_address_list(GMime.InternetAddressList? addrlist,
         int depth = 0) {
         if (addrlist == null || addrlist.length() == 0)
             return null;
@@ -348,9 +348,9 @@ public class Geary.RFC822.Message : BaseObject {
         
         int length = addrlist.length();
         for (int ctr = 0; ctr < length; ctr++) {
-            InternetAddress addr = addrlist.get_address(ctr);
+            GMime.InternetAddress addr = addrlist.get_address(ctr);
             
-            InternetAddressMailbox? mbox_addr = addr as InternetAddressMailbox;
+            GMime.InternetAddressMailbox? mbox_addr = addr as GMime.InternetAddressMailbox;
             if (mbox_addr != null) {
                 converted.add(new RFC822.MailboxAddress(mbox_addr.get_name(), mbox_addr.get_addr()));
                 
@@ -367,7 +367,7 @@ public class Geary.RFC822.Message : BaseObject {
             //
             // Second, RFC 822 6.2.6: "This  standard  does  not  permit  recursive  specification
             // of groups within groups."  So don't do it.
-            InternetAddressGroup? group = addr as InternetAddressGroup;
+            GMime.InternetAddressGroup? group = addr as GMime.InternetAddressGroup;
             if (group != null) {
                 if (depth == 0) {
                     Gee.List<RFC822.MailboxAddress>? grouplist = convert_gmime_address_list(

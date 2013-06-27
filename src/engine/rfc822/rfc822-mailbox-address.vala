@@ -38,7 +38,7 @@ public class Geary.RFC822.MailboxAddress : Geary.MessageData.SearchableMessageDa
     // Borrowed liberally from GMime's internal _internet_address_decode_name() function.
     private static string decode_name(string name) {
         // see if a broken mailer has sent raw 8-bit information
-        string text = name.validate() ? name : GMime.utils_decode_8bit(name, name.length);
+        string text = name.validate() ? name : GMime.utils_decode_8bit(name.data);
 
         // unquote the string and decode the text
         GMime.utils_unquote_string(text);
