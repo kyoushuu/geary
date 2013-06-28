@@ -271,7 +271,7 @@ public class Geary.RFC822.PreviewText : Geary.RFC822.Text {
         // Convert the encoding and character set.
         GMime.StreamFilter filter = new GMime.StreamFilter(output_stream);
         if (encoding != null)
-            filter.add(new GMime.FilterBasic(GMime.content_encoding_from_string(encoding), false));
+            filter.add(new GMime.FilterBasic(GMime.ContentEncoding.from_string(encoding), false));
         
         if (!String.is_empty(charset))
             filter.add(Geary.RFC822.Utils.create_utf8_filter_charset(charset));
