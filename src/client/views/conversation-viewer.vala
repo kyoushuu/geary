@@ -100,7 +100,7 @@ public class ConversationViewer : Gtk.Box {
         Geary.State.Mapping[] mappings = {
             new Geary.State.Mapping(SearchState.NONE, SearchEvent.RESET, on_reset),
             new Geary.State.Mapping(SearchState.NONE, SearchEvent.OPEN_FIND_BAR, on_open_find_bar),
-            new Geary.State.Mapping(SearchState.NONE, SearchEvent.CLOSE_FIND_BAR, Geary.State.nop),
+            new Geary.State.Mapping(SearchState.NONE, SearchEvent.CLOSE_FIND_BAR, on_close_find_bar),
             new Geary.State.Mapping(SearchState.NONE, SearchEvent.ENTER_SEARCH_FOLDER, on_enter_search_folder),
             
             new Geary.State.Mapping(SearchState.FIND, SearchEvent.RESET, on_reset),
@@ -110,7 +110,7 @@ public class ConversationViewer : Gtk.Box {
             
             new Geary.State.Mapping(SearchState.SEARCH_FOLDER, SearchEvent.RESET, on_reset),
             new Geary.State.Mapping(SearchState.SEARCH_FOLDER, SearchEvent.OPEN_FIND_BAR, on_open_find_bar),
-            new Geary.State.Mapping(SearchState.SEARCH_FOLDER, SearchEvent.CLOSE_FIND_BAR, Geary.State.nop),
+            new Geary.State.Mapping(SearchState.SEARCH_FOLDER, SearchEvent.CLOSE_FIND_BAR, on_close_find_bar),
             new Geary.State.Mapping(SearchState.SEARCH_FOLDER, SearchEvent.ENTER_SEARCH_FOLDER, Geary.State.nop),
         };
         
@@ -286,8 +286,9 @@ public class ConversationViewer : Gtk.Box {
         }
     }
     
-    private void on_search_text_changed() {
-        highlight_search_terms.begin();
+    private void on_search_text_changed(string? query) {
+        if (query != null)
+            highlight_search_terms.begin();
     }
     
     private async void highlight_search_terms() {
@@ -304,7 +305,7 @@ public class ConversationViewer : Gtk.Box {
         
         try {
             // Request a list of search terms.
-            Gee.Collection<string>? search_keywords = yield search_folder.get_search_keywords_async(
+            Gee.Collection<string>? search_keywords = yield search_folder.get_search_matches_async(
                 ids, cancellable_fetch);
             
             // Highlight the search terms.
@@ -326,7 +327,7 @@ public class ConversationViewer : Gtk.Box {
             Geary.ComposedEmail.REQUIRED_REPLY_FIELDS;
         
         Geary.Email full_email;
-        if (email.id.get_folder_path() == null) {
+        if (email.id.folder_path == null) {
             full_email = yield current_folder.account.local_fetch_email_async(
                 email.id, required_fields, cancellable);
         } else {
@@ -856,7 +857,7 @@ public class ConversationViewer : Gtk.Box {
         ConversationViewer conversation_viewer) {
         event.stop_propagation();
         Geary.Email? email = conversation_viewer.get_email_from_element(element);
-        if (email != null && email.id.get_folder_path() != null)
+        if (email != null && email.id.folder_path != null)
             conversation_viewer.unflag_message(email);
     }
 
@@ -864,7 +865,7 @@ public class ConversationViewer : Gtk.Box {
         ConversationViewer conversation_viewer) {
         event.stop_propagation();
         Geary.Email? email = conversation_viewer.get_email_from_element(element);
-        if (email != null && email.id.get_folder_path() != null)
+        if (email != null && email.id.folder_path != null)
             conversation_viewer.flag_message(email);
     }
 
@@ -1294,7 +1295,7 @@ public class ConversationViewer : Gtk.Box {
         menu.append(new Gtk.SeparatorMenuItem());
         
         // Mark as read/unread.
-        if (email.id.get_folder_path() != null && current_folder is Geary.FolderSupport.Mark) {
+        if (email.id.folder_path != null && current_folder is Geary.FolderSupport.Mark) {
             if (email.is_unread().to_boolean(false)) {
                 Gtk.MenuItem mark_read_item = new Gtk.MenuItem.with_mnemonic(_("_Mark as Read"));
                 mark_read_item.activate.connect(() => on_mark_read_message(email));
@@ -1686,7 +1687,7 @@ public class ConversationViewer : Gtk.Box {
                 if (message.email_flags.is_unread()) {
                     WebKit.DOM.HTMLElement element = email_to_element.get(message.id);
                     WebKit.DOM.HTMLElement body = (WebKit.DOM.HTMLElement) element.get_elements_by_class_name("body").item(0);
-                    if (message.id.get_folder_path() != null &&
+                    if (message.id.folder_path != null &&
                             !element.get_class_list().contains("manual_read") &&
                             body.offset_top + body.offset_height > scroll_top &&
                             body.offset_top + 28 < scroll_top + scroll_height) {  // 28 = 15 padding + 13 first line of text
@@ -1713,12 +1714,12 @@ public class ConversationViewer : Gtk.Box {
         web_view.unmark_text_matches();
         
         if (search_folder != null) {
-            search_folder.search_keywords_changed.disconnect(on_search_text_changed);
+            search_folder.search_query_changed.disconnect(on_search_text_changed);
             search_folder = null;
         }
         
         if (conversation_find_bar.visible)
-            conversation_find_bar.hide(); // Close the find bar.
+            fsm.do_post_transition(() => { conversation_find_bar.hide(); }, user, object);
         
         return SearchState.NONE;
     }
@@ -1751,7 +1752,7 @@ public class ConversationViewer : Gtk.Box {
     private uint on_enter_search_folder(uint state, uint event, void *user, Object? object) {
         search_folder = current_folder as Geary.SearchFolder;
         assert(search_folder != null);
-        search_folder.search_keywords_changed.connect(on_search_text_changed);
+        search_folder.search_query_changed.connect(on_search_text_changed);
         
         return SearchState.SEARCH_FOLDER;
     }
