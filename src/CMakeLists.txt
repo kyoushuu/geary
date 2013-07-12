@@ -45,6 +45,7 @@ engine/api/geary-folder-supports-remove.vala
 engine/api/geary-logging.vala
 engine/api/geary-named-flag.vala
 engine/api/geary-named-flags.vala
+engine/api/geary-null-email-identifier.vala
 engine/api/geary-progress-monitor.vala
 engine/api/geary-search-folder.vala
 engine/api/geary-service-provider.vala
@@ -84,7 +85,6 @@ engine/imap/imap.vala
 engine/imap/imap-error.vala
 engine/imap/api/imap-account.vala
 engine/imap/api/imap-email-flags.vala
-engine/imap/api/imap-email-identifier.vala
 engine/imap/api/imap-email-properties.vala
 engine/imap/api/imap-folder-properties.vala
 engine/imap/api/imap-folder.vala

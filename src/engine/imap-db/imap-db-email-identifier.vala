@@ -5,7 +5,7 @@
  */
 
 private class Geary.ImapDB.EmailIdentifier : Geary.EmailIdentifier {
-    public EmailIdentifier(int64 message_id, Geary.FolderPath? folder_path) {
-        base (message_id, folder_path);
+    public EmailIdentifier(int64 message_id) {
+        base (message_id);
     }
 }

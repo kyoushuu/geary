@@ -180,7 +180,7 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         
         // to match all flags and find all removed interior to the local store's vector of messages, start from
         // local earliest message and work upwards
-        Geary.Imap.EmailIdentifier current_start_id = new Geary.Imap.EmailIdentifier(earliest_uid, local_folder.get_path());
+        Imap.UID current_start_uid = earliest_uid;
         
         // if fast-open and the difference in UIDNEXT values equals the difference in message count, then only
         // an append could have happened, so only pull in the new messages ... note that this is not foolproof,
@@ -191,12 +191,12 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         // situation, esp. messages being removed.)
         if (is_fast_open) {
             if (uidnext_diff == (remote_properties.select_examine_messages - local_properties.select_examine_messages)) {
-                current_start_id = new Geary.Imap.EmailIdentifier(latest_uid.next(), local_folder.get_path());
+                current_start_uid = latest_uid.next();
                 
                 debug("fast-open %s: Messages only appended (local/remote UIDNEXT=%s/%s total=%d/%d diff=%s), only gathering new mail at %s",
                     to_string(), local_properties.uid_next.to_string(), remote_properties.uid_next.to_string(),
                     local_properties.select_examine_messages, remote_properties.select_examine_messages, uidnext_diff.to_string(),
-                    current_start_id.to_string());
+                    current_start_uid.to_string());
             } else {
                 debug("fast-open %s: Messages appended/removed (local/remote UIDNEXT=%s/%s total=%d/%d diff=%s)", to_string(),
                     local_properties.uid_next.to_string(), remote_properties.uid_next.to_string(),
@@ -222,10 +222,8 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
             int local_length = (old_local != null) ? old_local.size : 0;
             
             // if nothing, keep going because there could be remote messages to pull down
-            Geary.Imap.EmailIdentifier current_end_id = new Geary.Imap.EmailIdentifier(
-                new Imap.UID(current_start_id.uid.value + NORMALIZATION_CHUNK_COUNT),
-                current_start_id.folder_path);
-            Imap.MessageSet msg_set = new Imap.MessageSet.uid_range(current_start_id.uid, current_end_id.uid);
+            Imap.UID current_end_uid = new Imap.UID(current_start_uid.value + NORMALIZATION_CHUNK_COUNT);
+            Imap.MessageSet msg_set = new Imap.MessageSet.uid_range(current_start_uid, current_end_uid);
             
             // Get the remote emails in the range to either add any not known, remove deleted messages,
             // and update the flags of the remainder
@@ -251,14 +249,14 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
                 Geary.Imap.UID? remote_uid = null;
                 if (old_remote != null && remote_ctr < remote_length) {
                     remote_email = old_remote[remote_ctr];
-                    remote_uid = ((Geary.Imap.EmailIdentifier) remote_email.id).uid;
+                    remote_uid = new Imap.UID(remote_email.ordering);
                 }
                 
                 Geary.Email? local_email = null;
                 Geary.Imap.UID? local_uid = null;
                 if (old_local != null && local_ctr < local_length) {
                     local_email = old_local[local_ctr];
-                    local_uid = ((Geary.Imap.EmailIdentifier) local_email.id).uid;
+                    local_uid = new Imap.UID(local_email.ordering);
                 }
                 
                 if (local_email == null && remote_email == null)
@@ -414,13 +412,12 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
             }
             
             // increment the next start id after the current end, as it now points to the last id examined
-            current_start_id = new Geary.Imap.EmailIdentifier(current_end_id.uid.next(),
-                current_start_id.folder_path);
+            current_start_uid = current_end_id.uid.next();
             
             // if gone past both local and remote extremes, time to exit
             // TODO: If UIDNEXT isn't available on server, will need to fetch the highest UID
-            if (current_start_id.uid.compare_to(latest_uid) >= 0
-                && current_start_id.uid.compare_to(remote_properties.uid_next) >= 0)
+            if (current_start_uid.compare_to(latest_uid) >= 0
+                && current_start_uid.compare_to(remote_properties.uid_next) >= 0)
                 break;
         }
         
@@ -1079,7 +1076,7 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
     }
     
     private void check_id(string method, EmailIdentifier id) throws EngineError {
-        if (!(id is Imap.EmailIdentifier))
+        if (!(id is ImapDB.EmailIdentifier))
             throw new EngineError.BAD_PARAMETERS("Email ID %s is not IMAP Email ID", id.to_string());
     }
     

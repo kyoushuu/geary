@@ -29,7 +29,7 @@ private class Geary.SmtpOutboxFolder : Geary.AbstractLocalFolder, Geary.FolderSu
             this.ordering = ordering;
             this.message = message;
             
-            outbox_id = new SmtpOutboxEmailIdentifier(ordering, root);
+            outbox_id = new SmtpOutboxEmailIdentifier(ordering);
         }
     }
     

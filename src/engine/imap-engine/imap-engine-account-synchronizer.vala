@@ -336,9 +336,14 @@ private class Geary.ImapEngine.AccountSynchronizer : Geary.BaseObject {
         
         // if local email available, only search for messages before it
         if (oldest_local_id != null) {
-            Imap.UID oldest_uid = ((Imap.EmailIdentifier) oldest_local_id).uid;
-            criteria.and(Imap.SearchCriterion.message_set(
-                new Imap.MessageSet.uid_range(new Imap.UID(Imap.UID.MIN), oldest_uid.previous())));
+            Imap.UID? oldest_uid = yield folder.local_folder.get_email_uid_async(oldest_local_id, null);
+            if (oldest_uid != null) {
+                criteria.and(Imap.SearchCriterion.message_set(
+                    new Imap.MessageSet.uid_range(new Imap.UID(Imap.UID.MIN), oldest_uid.previous())));
+            } else {
+                debug("%s: unable to convert oldest local id %s to UID", to_string(),
+                    oldest_local_id.to_string());
+            }
         }
         
         Gee.SortedSet<Geary.EmailIdentifier>? since_ids = yield folder.remote_folder.search_async(
