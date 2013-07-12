@@ -67,7 +67,7 @@ public class ConversationViewer : Gtk.Box {
     public ConversationWebView web_view { get; private set; }
     
     // Current conversation, or null if none.
-    public Geary.Conversation? current_conversation = null;
+    public Geary.App.Conversation? current_conversation = null;
     
     // Label for displaying overlay messages.
     private Gtk.Label message_overlay_label;
@@ -212,7 +212,7 @@ public class ConversationViewer : Gtk.Box {
         }
     }
     
-    private void on_conversations_selected(Gee.Set<Geary.Conversation>? conversations,
+    private void on_conversations_selected(Gee.Set<Geary.App.Conversation>? conversations,
         Geary.Folder? current_folder) {
         cancel_load();
         if (current_conversation != null) {
@@ -251,9 +251,10 @@ public class ConversationViewer : Gtk.Box {
         }
     }
     
-    private async void select_conversation_async(Geary.Conversation conversation,
+    private async void select_conversation_async(Geary.App.Conversation conversation,
         Geary.Folder current_folder) throws Error {
-        Gee.Collection<Geary.Email> messages = conversation.get_emails(Geary.Conversation.Ordering.DATE_ASCENDING);
+        Gee.Collection<Geary.Email> messages = conversation.get_emails(
+            Geary.App.Conversation.Ordering.DATE_ASCENDING);
         
         // Load this once, so if it's cancelled, we cancel the WHOLE load.
         Cancellable cancellable = cancellable_fetch;

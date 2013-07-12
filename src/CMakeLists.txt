@@ -23,7 +23,6 @@ engine/api/geary-contact.vala
 engine/api/geary-contact-flags.vala
 engine/api/geary-contact-importance.vala
 engine/api/geary-contact-store.vala
-engine/api/geary-conversation.vala
 engine/api/geary-credentials.vala
 engine/api/geary-credentials-mediator.vala
 engine/api/geary-email-flags.vala
@@ -50,6 +49,7 @@ engine/api/geary-search-folder.vala
 engine/api/geary-service-provider.vala
 engine/api/geary-special-folder-type.vala
 
+engine/app/app-conversation.vala
 engine/app/app-conversation-monitor.vala
 
 engine/app/conversation-monitor/app-append-operation.vala
@@ -58,7 +58,6 @@ engine/app/conversation-monitor/app-conversation-operation.vala
 engine/app/conversation-monitor/app-conversation-set.vala
 engine/app/conversation-monitor/app-external-append-operation.vala
 engine/app/conversation-monitor/app-fill-window-operation.vala
-engine/app/conversation-monitor/app-impl-conversation.vala
 engine/app/conversation-monitor/app-local-load-operation.vala
 engine/app/conversation-monitor/app-local-search-operation.vala
 engine/app/conversation-monitor/app-remove-operation.vala

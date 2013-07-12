@@ -74,8 +74,8 @@ public class GearyController {
     private Gee.HashMap<Geary.Account, Cancellable> inbox_cancellables
         = new Gee.HashMap<Geary.Account, Cancellable>();
     private int busy_count = 0;
-    private Gee.Set<Geary.Conversation> selected_conversations = new Gee.HashSet<Geary.Conversation>();
-    private Geary.Conversation? last_deleted_conversation = null;
+    private Gee.Set<Geary.App.Conversation> selected_conversations = new Gee.HashSet<Geary.App.Conversation>();
+    private Geary.App.Conversation? last_deleted_conversation = null;
     private Gee.LinkedList<ComposerWindow> composer_windows = new Gee.LinkedList<ComposerWindow>();
     private File? last_save_directory = null;
     private NewMessagesMonitor? new_messages_monitor = null;
@@ -104,7 +104,7 @@ public class GearyController {
     /**
      * Fired when the currently selected conversation(s) has/have changed.
      */
-    public signal void conversations_selected(Gee.Set<Geary.Conversation>? conversations,
+    public signal void conversations_selected(Gee.Set<Geary.App.Conversation>? conversations,
         Geary.Folder? current_folder);
     
     /**
@@ -845,7 +845,7 @@ public class GearyController {
             return;
         
         main_window.folder_list.select_folder(folder);
-        Geary.Conversation? conversation = current_conversations.get_conversation_for_email(email.id);
+        Geary.App.Conversation? conversation = current_conversations.get_conversation_for_email(email.id);
         if (conversation != null)
             main_window.conversation_list_view.select_conversation(conversation);
     }
@@ -878,7 +878,7 @@ public class GearyController {
         }
     }
     
-    private void on_conversations_selected(Gee.Set<Geary.Conversation> selected) {
+    private void on_conversations_selected(Gee.Set<Geary.App.Conversation> selected) {
         cancel_message();
         
         selected_conversations = selected;
@@ -1077,12 +1077,12 @@ public class GearyController {
     private Gee.List<Geary.EmailIdentifier> get_selected_folder_email_ids(
         bool preview_message_only = false) {
         Gee.ArrayList<Geary.EmailIdentifier> ids = new Gee.ArrayList<Geary.EmailIdentifier>();
-        foreach (Geary.Conversation conversation in selected_conversations)
+        foreach (Geary.App.Conversation conversation in selected_conversations)
             ids.add_all(get_conversation_email_ids(conversation, true, preview_message_only));
         return ids;
     }
     
-    private Gee.Collection<Geary.EmailIdentifier> get_conversation_email_ids(Geary.Conversation conversation,
+    private Gee.Collection<Geary.EmailIdentifier> get_conversation_email_ids(Geary.App.Conversation conversation,
         bool folder_email_ids_only = false, bool preview_message_only = false) {
         if (preview_message_only) {
             Gee.ArrayList<Geary.EmailIdentifier> id = new Gee.ArrayList<Geary.EmailIdentifier>();
@@ -1115,7 +1115,7 @@ public class GearyController {
         bool read_selected = false;
         bool starred_selected = false;
         bool unstarred_selected = false;
-        foreach (Geary.Conversation conversation in selected_conversations) {
+        foreach (Geary.App.Conversation conversation in selected_conversations) {
             if (conversation.is_unread())
                 unread_selected = true;
             if (conversation.has_any_read_message())
@@ -1159,7 +1159,7 @@ public class GearyController {
         }
     }
     
-    private void on_visible_conversations_changed(Gee.Set<Geary.Conversation> visible) {
+    private void on_visible_conversations_changed(Gee.Set<Geary.App.Conversation> visible) {
         clear_new_messages("on_visible_conversations_changed", visible);
     }
     
@@ -1174,15 +1174,15 @@ public class GearyController {
     
     // Clears messages if conditions are true: anything in should_notify_new_messages() is
     // false and the supplied visible messages are visible in the conversation list view
-    private void clear_new_messages(string caller, Gee.Set<Geary.Conversation>? supplied) {
+    private void clear_new_messages(string caller, Gee.Set<Geary.App.Conversation>? supplied) {
         if (current_folder == null || !new_messages_monitor.get_folders().contains(current_folder)
             || should_notify_new_messages(current_folder))
             return;
         
-        Gee.Set<Geary.Conversation> visible =
+        Gee.Set<Geary.App.Conversation> visible =
             supplied ?? main_window.conversation_list_view.get_visible_conversations();
         
-        foreach (Geary.Conversation conversation in visible) {
+        foreach (Geary.App.Conversation conversation in visible) {
             if (new_messages_monitor.are_any_new_messages(current_folder, conversation.get_email_ids())) {
                 debug("Clearing new messages: %s", caller);
                 new_messages_monitor.clear_new_messages(current_folder);
@@ -1192,7 +1192,7 @@ public class GearyController {
         }
     }
     
-    private void on_mark_conversation(Geary.Conversation conversation,
+    private void on_mark_conversation(Geary.App.Conversation conversation,
         Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove, bool only_mark_preview = false) {
         Geary.FolderSupport.Mark? supports_mark = current_folder as Geary.FolderSupport.Mark;
         if (supports_mark == null)
@@ -1525,7 +1525,7 @@ public class GearyController {
         // There should always be at least one conversation selected here, otherwise the archive
         // button is disabled, but better safe than segfaulted.
         last_deleted_conversation = selected_conversations.size > 0
-            ? Geary.Collection.get_first<Geary.Conversation>(selected_conversations) : null;
+            ? Geary.Collection.get_first<Geary.App.Conversation>(selected_conversations) : null;
         
         // If the user clicked the toolbar button, we want to move focus back to the message list.
         main_window.conversation_list_view.grab_focus();

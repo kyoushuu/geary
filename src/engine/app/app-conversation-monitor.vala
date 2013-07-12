@@ -264,7 +264,7 @@ public class Geary.App.ConversationMonitor : BaseObject {
         return conversations.conversations;
     }
     
-    public Geary.Conversation? get_conversation_for_email(Geary.EmailIdentifier email_id) {
+    public Geary.App.Conversation? get_conversation_for_email(Geary.EmailIdentifier email_id) {
         return conversations.get_by_email_identifier(email_id);
     }
     
@@ -622,14 +622,14 @@ public class Geary.App.ConversationMonitor : BaseObject {
     }
     
     private void process_email_complete(ProcessJobContext job) {
-        Gee.Collection<Geary.Conversation> added;
-        Gee.MultiMap<Geary.Conversation, Geary.Email> appended;
+        Gee.Collection<Geary.App.Conversation> added;
+        Gee.MultiMap<Geary.App.Conversation, Geary.Email> appended;
         conversations.add_all_emails(job.emails.values, this, folder.path, out added, out appended);
         
         if (added.size > 0)
             notify_conversations_added(added);
         
-        foreach (Geary.Conversation conversation in appended.get_keys())
+        foreach (Geary.App.Conversation conversation in appended.get_keys())
             notify_conversation_appended(conversation, appended.get(conversation));
         
         if (job.inside_scan)
@@ -661,8 +661,8 @@ public class Geary.App.ConversationMonitor : BaseObject {
         debug("%d messages(s) removed to %s, trimming/removing conversations...", removed_ids.size,
             folder.to_string());
         
-        Gee.Collection<Geary.Conversation> removed;
-        Gee.MultiMap<Geary.Conversation, Geary.Email> trimmed;
+        Gee.Collection<Geary.App.Conversation> removed;
+        Gee.MultiMap<Geary.App.Conversation, Geary.Email> trimmed;
         conversations.remove_all_emails_by_identifier(removed_ids, out removed, out trimmed);
         
         foreach (Conversation conversation in trimmed.get_keys())
@@ -716,7 +716,7 @@ public class Geary.App.ConversationMonitor : BaseObject {
     
     private Geary.EmailIdentifier? get_lowest_email_id() {
         Geary.EmailIdentifier? earliest_id = null;
-        foreach (Geary.Conversation conversation in conversations.conversations) {
+        foreach (Geary.App.Conversation conversation in conversations.conversations) {
             Geary.EmailIdentifier? id = conversation.get_lowest_email_id();
             if (id != null && (earliest_id == null || id.compare_to(earliest_id) < 0))
                 earliest_id = id;

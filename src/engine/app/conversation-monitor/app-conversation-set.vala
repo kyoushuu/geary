@@ -5,25 +5,25 @@
  */
 
 private class Geary.App.ConversationSet : BaseObject {
-    private Gee.Set<ImplConversation> _conversations = new Gee.HashSet<ImplConversation>();
+    private Gee.Set<Conversation> _conversations = new Gee.HashSet<Conversation>();
     
     // Maps email ids to conversations.
-    private Gee.HashMap<Geary.EmailIdentifier, ImplConversation> email_id_map
-        = new Gee.HashMap<Geary.EmailIdentifier, ImplConversation>();
+    private Gee.HashMap<Geary.EmailIdentifier, Conversation> email_id_map
+        = new Gee.HashMap<Geary.EmailIdentifier, Conversation>();
     
     // Only contains the Message-ID headers of emails actually in
     // conversations.
-    private Gee.HashMap<Geary.RFC822.MessageID, ImplConversation> contained_message_id_map
-        = new Gee.HashMap<Geary.RFC822.MessageID, ImplConversation>();
+    private Gee.HashMap<Geary.RFC822.MessageID, Conversation> contained_message_id_map
+        = new Gee.HashMap<Geary.RFC822.MessageID, Conversation>();
     
     // Contains the full set of Message IDs theoretically in each conversation,
     // as determined by the ancestors of all messages in the conversation.
-    private Gee.HashMap<Geary.RFC822.MessageID, ImplConversation> logical_message_id_map
-        = new Gee.HashMap<Geary.RFC822.MessageID, ImplConversation>();
+    private Gee.HashMap<Geary.RFC822.MessageID, Conversation> logical_message_id_map
+        = new Gee.HashMap<Geary.RFC822.MessageID, Conversation>();
     
     public int size { get { return _conversations.size; } }
     public bool is_empty { get { return _conversations.is_empty; } }
-    public Gee.Collection<Geary.Conversation> conversations {
+    public Gee.Collection<Conversation> conversations {
         owned get { return _conversations.read_only_view; }
     }
     
@@ -35,15 +35,13 @@ private class Geary.App.ConversationSet : BaseObject {
             return email_id_map.size;
         
         int count = 0;
-        foreach (ImplConversation conversation in _conversations)
+        foreach (Conversation conversation in _conversations)
             count += conversation.get_count(folder_email_ids_only);
         return count;
     }
     
-    public bool contains(Geary.Conversation conversation) {
-        if (!(conversation is ImplConversation))
-            return false;
-        return _conversations.contains((ImplConversation) conversation);
+    public bool contains(Conversation conversation) {
+        return _conversations.contains(conversation);
     }
     
     public bool has_email_identifier(Geary.EmailIdentifier id) {
@@ -60,7 +58,7 @@ private class Geary.App.ConversationSet : BaseObject {
         return (logical_set ? logical_message_id_map : contained_message_id_map).has_key(message_id);
     }
     
-    public Geary.Conversation? get_by_email_identifier(Geary.EmailIdentifier id) {
+    public Conversation? get_by_email_identifier(Geary.EmailIdentifier id) {
         return email_id_map.get(id);
     }
     
@@ -70,17 +68,17 @@ private class Geary.App.ConversationSet : BaseObject {
      * conversation; else it must match the Message-ID header of an email in
      * any conversation.  Return null if not found.
      */
-    public Geary.Conversation? get_by_message_id(Geary.RFC822.MessageID message_id,
+    public Conversation? get_by_message_id(Geary.RFC822.MessageID message_id,
         bool logical_set = false) {
         return (logical_set ? logical_message_id_map : contained_message_id_map).get(message_id);
     }
     
     public void clear_owners() {
-        foreach (ImplConversation conversation in _conversations)
+        foreach (Conversation conversation in _conversations)
             conversation.clear_owner();
     }
     
-    private void remove_email_from_conversation(ImplConversation conversation, Geary.Email email) {
+    private void remove_email_from_conversation(Conversation conversation, Geary.Email email) {
         // Be very strict about our internal state getting out of whack, since
         // it would indicate a nasty error in our logic that we need to fix.
         if (!email_id_map.unset(email.id))
@@ -102,10 +100,10 @@ private class Geary.App.ConversationSet : BaseObject {
         }
     }
     
-    private bool remove_duplicate_email_by_message_id(ImplConversation conversation,
+    private bool remove_duplicate_email_by_message_id(Conversation conversation,
         Geary.Email email, Geary.FolderPath? preferred_folder_path) {
         Email? existing = null;
-        foreach (Geary.Email other in conversation.get_emails(Geary.Conversation.Ordering.NONE)) {
+        foreach (Geary.Email other in conversation.get_emails(Conversation.Ordering.NONE)) {
             if (other.message_id != null && email.message_id.equal_to(other.message_id)) {
                 existing = email;
                 break;
@@ -142,14 +140,14 @@ private class Geary.App.ConversationSet : BaseObject {
      * existing email), or the conversation it was added to.  Return in
      * added_conversation whether a new conversation was created.
      */
-    public Geary.Conversation? add_email(Geary.Email email, ConversationMonitor monitor,
+    public Conversation? add_email(Geary.Email email, ConversationMonitor monitor,
         Geary.FolderPath? preferred_folder_path, out bool added_conversation) {
         added_conversation = false;
         
         if (email_id_map.has_key(email.id))
             return null;
         
-        ImplConversation? conversation = null;
+        Conversation? conversation = null;
         if (email.message_id != null) {
             conversation = contained_message_id_map.get(email.message_id);
             // This can happen when we find results in multiple folders or a
@@ -173,7 +171,7 @@ private class Geary.App.ConversationSet : BaseObject {
         }
         
         if (conversation == null) {
-            conversation = new ImplConversation(monitor);
+            conversation = new Conversation(monitor);
             _conversations.add(conversation);
             
             added_conversation = true;
@@ -201,15 +199,15 @@ private class Geary.App.ConversationSet : BaseObject {
     
     public void add_all_emails(Gee.Collection<Geary.Email> emails,
         ConversationMonitor monitor, Geary.FolderPath? preferred_folder_path,
-        out Gee.Collection<Geary.Conversation> added,
-        out Gee.MultiMap<Geary.Conversation, Geary.Email> appended) {
-        Gee.HashSet<Geary.Conversation> _added = new Gee.HashSet<Geary.Conversation>();
-        Gee.HashMultiMap<Geary.Conversation, Geary.Email> _appended
-            = new Gee.HashMultiMap<Geary.Conversation, Geary.Email>();
+        out Gee.Collection<Conversation> added,
+        out Gee.MultiMap<Conversation, Geary.Email> appended) {
+        Gee.HashSet<Conversation> _added = new Gee.HashSet<Conversation>();
+        Gee.HashMultiMap<Conversation, Geary.Email> _appended
+            = new Gee.HashMultiMap<Conversation, Geary.Email>();
         
         foreach (Geary.Email email in emails) {
             bool added_conversation;
-            Geary.Conversation? conversation = add_email(
+            Conversation? conversation = add_email(
                 email, monitor, preferred_folder_path, out added_conversation);
             
             if (conversation == null)
@@ -227,12 +225,12 @@ private class Geary.App.ConversationSet : BaseObject {
         appended = _appended;
     }
     
-    public Geary.Conversation? remove_email_by_identifier(Geary.EmailIdentifier id,
+    public Conversation? remove_email_by_identifier(Geary.EmailIdentifier id,
         out Geary.Email? removed_email, out bool removed_conversation) {
         removed_email = null;
         removed_conversation = false;
         
-        ImplConversation? conversation = email_id_map.get(id);
+        Conversation? conversation = email_id_map.get(id);
         if (conversation == null) {
             debug("Removed email %s not found in conversation set", id.to_string());
             return null;
@@ -247,7 +245,7 @@ private class Geary.App.ConversationSet : BaseObject {
         
         // Evaporate conversations with no more messages in the folder.
         if (conversation.get_count(true) == 0) {
-            foreach (Geary.Email conversation_email in conversation.get_emails(Geary.Conversation.Ordering.NONE))
+            foreach (Geary.Email conversation_email in conversation.get_emails(Conversation.Ordering.NONE))
                 remove_email_from_conversation(conversation, conversation_email);
             
             if (!_conversations.remove(conversation))
@@ -263,16 +261,16 @@ private class Geary.App.ConversationSet : BaseObject {
     }
     
     public void remove_all_emails_by_identifier(Gee.Collection<Geary.EmailIdentifier> ids,
-        out Gee.Collection<Geary.Conversation> removed,
-        out Gee.MultiMap<Geary.Conversation, Geary.Email> trimmed) {
-        Gee.HashSet<Geary.Conversation> _removed = new Gee.HashSet<Geary.Conversation>();
-        Gee.HashMultiMap<Geary.Conversation, Geary.Email> _trimmed
-            = new Gee.HashMultiMap<Geary.Conversation, Geary.Email>();
+        out Gee.Collection<Conversation> removed,
+        out Gee.MultiMap<Conversation, Geary.Email> trimmed) {
+        Gee.HashSet<Conversation> _removed = new Gee.HashSet<Conversation>();
+        Gee.HashMultiMap<Conversation, Geary.Email> _trimmed
+            = new Gee.HashMultiMap<Conversation, Geary.Email>();
         
         foreach (Geary.EmailIdentifier id in ids) {
             Geary.Email email;
             bool removed_conversation;
-            Geary.Conversation? conversation = remove_email_by_identifier(
+            Conversation? conversation = remove_email_by_identifier(
                 id, out email, out removed_conversation);
             
             if (conversation == null)
