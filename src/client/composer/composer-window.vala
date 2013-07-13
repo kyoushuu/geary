@@ -38,6 +38,7 @@ public class ComposerWindow : Gtk.Window {
     private const string ACTION_INSERT_LINK = "insertlink";
     private const string ACTION_COMPOSE_AS_HTML = "compose as html";
     private const string ACTION_CLOSE = "close";
+    private const string ACTION_SAVE = "save";
     
     private const string URI_LIST_MIME_TYPE = "text/uri-list";
     private const string FILE_URI_PREFIX = "file://";
@@ -83,9 +84,6 @@ public class ComposerWindow : Gtk.Window {
     public const string ATTACHMENT_KEYWORDS_GENERIC = ".doc|.pdf|.xls|.ppt|.rtf|.pps";
     /// A list of keywords, separated by pipe ("|") characters, that suggest an attachment
     public const string ATTACHMENT_KEYWORDS_LOCALIZED = _("attach|enclosed|enclosing|cover letter");
-    
-    // Signal sent when the "Send" button is clicked.
-    public signal void send(ComposerWindow composer);
     
     public Geary.Account account { get; private set; }
     
@@ -278,6 +276,8 @@ public class ComposerWindow : Gtk.Window {
         actions.get_action(ACTION_INSERT_LINK).activate.connect(on_insert_link);
         
         actions.get_action(ACTION_CLOSE).activate.connect(on_close);
+        
+        actions.get_action(ACTION_SAVE).activate.connect(on_save);
         
         ui = new Gtk.UIManager();
         ui.insert_action_group(actions, 0);
@@ -735,8 +735,32 @@ public class ComposerWindow : Gtk.Window {
     private void on_send() {
         if (should_send()) {
             linkify_document(editor.get_dom_document());
-            send(this);
+            account.send_email_async.begin(get_composed_email());
+            destroy();
         }
+    }
+    
+    // Save to the draft folder, if available.
+    // Note that drafts are NOT "linkified."    
+    private void on_save() {
+        stdout.printf("on save!!\n");
+        
+        Geary.Folder? drafts_folder = null;
+        try {
+            drafts_folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS);
+        } catch (Error e) {
+            stdout.printf("Error getting drafts folder: %s", e.message);
+        }
+        
+        if (drafts_folder == null) {
+            stdout.printf("No drafts folder available for this account.\n");
+            
+            return;
+        }
+        
+        account.create_email_async.begin(drafts_folder.path, 
+            new Geary.RFC822.Message.from_composed_email(get_composed_email()),
+            new Geary.EmailFlags(), null, null);
     }
     
     private void on_add_attachment_button_clicked() {
