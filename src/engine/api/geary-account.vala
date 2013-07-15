@@ -276,6 +276,16 @@ public interface Geary.Account : BaseObject {
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error;
     
     /**
+     * Return a map of each passed-in email identifier to the set of folders
+     * that contain it.  If an email id doesn't appear in the resulting map,
+     * it isn't contained in any folders.  Return null if the resulting map
+     * would be empty.  Only throw database errors et al., not errors due to
+     * the email id not being found.
+     */
+    public abstract async Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? get_containing_folders_async(
+        Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error;
+    
+    /**
      * Used only for debugging.  Should not be used for user-visible strings.
      */
     public abstract string to_string();

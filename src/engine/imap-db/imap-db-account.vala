@@ -824,6 +824,26 @@ private class Geary.ImapDB.Account : BaseObject {
         return count;
     }
     
+    public async Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? get_containing_folders_async(
+        Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable) throws Error {
+        Gee.HashMultiMap<Geary.EmailIdentifier, Geary.FolderPath> map
+            = new Gee.HashMultiMap<Geary.EmailIdentifier, Geary.FolderPath>();
+        yield db.exec_transaction_async(Db.TransactionType.RO, (cx, cancellable) => {
+            foreach (Geary.EmailIdentifier id in ids) {
+                // TODO: handle outbox, etc.
+                int64? message_id = do_get_row_id_from_message_id(cx, id, cancellable);
+                Gee.Collection<Geary.FolderPath> folder_paths =
+                    do_find_email_folders(cx, message_id, cancellable);
+                foreach (Geary.FolderPath folder_path in folder_paths)
+                    map.set(id, folder_path);
+            }
+            
+            return Db.TransactionOutcome.DONE;
+        }, cancellable);
+        
+        return (map.size == 0 ? null : map);
+    }
+    
     private async void populate_search_table_async(Cancellable? cancellable) {
         debug("Populating search table");
         try {
@@ -977,6 +997,22 @@ private class Geary.ImapDB.Account : BaseObject {
         }
         
         return do_fetch_folder_id(cx, path.get_parent(), create, out parent_id, cancellable);
+    }
+    
+    public int64? do_get_row_id_from_message_id(Db.Connection cx, Geary.EmailIdentifier id,
+        Cancellable? cancellable) throws Error {
+        if (id is Geary.ImapDB.EmailIdentifier)
+            return id.ordering;
+        
+        if (id.folder_path == null)
+            return null;
+        
+        int64 folder_id;
+        do_fetch_folder_id(cx, id.folder_path, true, out folder_id, cancellable);
+        if (folder_id == Db.INVALID_ROWID)
+            return null;
+        
+        return do_get_message_row_id(cx, folder_id, id.ordering, cancellable);
     }
     
     public int64? do_get_message_row_id(Db.Connection cx, int64 folder_id, int64 ordering,

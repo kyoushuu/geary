@@ -536,6 +536,11 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
         return yield local.get_search_matches_async(previous_prepared_search_query, ids, cancellable);
     }
     
+    public override async Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? get_containing_folders_async(
+        Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error {
+        return yield local.get_containing_folders_async(ids, cancellable);
+    }
+    
     private void on_login_failed(Geary.Credentials? credentials) {
         do_login_failed_async.begin(credentials);
     }
