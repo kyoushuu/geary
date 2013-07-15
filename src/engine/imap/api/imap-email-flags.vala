@@ -34,6 +34,9 @@ public class Geary.Imap.EmailFlags : Geary.EmailFlags {
         foreach (Geary.NamedFlag named_flag in api_flags.get_all())
             msg_flags.add(new MessageFlag(named_flag.name));
         
+        if (!api_flags.is_unread())
+            msg_flags.add(MessageFlag.SEEN);
+        
         return new Imap.EmailFlags(new MessageFlags(msg_flags));
     }
     

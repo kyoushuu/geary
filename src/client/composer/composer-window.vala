@@ -741,15 +741,13 @@ public class ComposerWindow : Gtk.Window {
     }
     
     // Save to the draft folder, if available.
-    // Note that drafts are NOT "linkified."    
+    // Note that drafts are NOT "linkified."
     private void on_save() {
-        stdout.printf("on save!!\n");
-        
         Geary.Folder? drafts_folder = null;
         try {
             drafts_folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS);
         } catch (Error e) {
-            stdout.printf("Error getting drafts folder: %s", e.message);
+            debug("Error getting drafts folder: %s", e.message);
         }
         
         if (drafts_folder == null) {
