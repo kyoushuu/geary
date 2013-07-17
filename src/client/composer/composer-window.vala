@@ -740,9 +740,8 @@ public class ComposerWindow : Gtk.Window {
         }
     }
     
-    // Save to the draft folder, if available.
-    // Note that drafts are NOT "linkified."
-    private void on_save() {
+    // Returns the drafts folder for the current From account.
+    private Geary.Folder? get_drafts_folder() {
         Geary.Folder? drafts_folder = null;
         try {
             drafts_folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS);
@@ -750,6 +749,13 @@ public class ComposerWindow : Gtk.Window {
             debug("Error getting drafts folder: %s", e.message);
         }
         
+        return drafts_folder;
+    }
+    
+    // Save to the draft folder, if available.
+    // Note that drafts are NOT "linkified."
+    private void on_save() {
+        Geary.Folder? drafts_folder = get_drafts_folder();
         if (drafts_folder == null) {
             stdout.printf("No drafts folder available for this account.\n");
             
@@ -1511,6 +1517,9 @@ public class ComposerWindow : Gtk.Window {
                 debug("Error updating account in Composer: %s", e.message);
             }
         }
+        
+        // Only show Save button if we have a drafts folder to write to.
+        actions.get_action(ACTION_SAVE).visible = get_drafts_folder() != null;
     }
     
     private void set_entry_completions() {
