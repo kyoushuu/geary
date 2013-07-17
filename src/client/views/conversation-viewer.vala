@@ -20,6 +20,8 @@ public class ConversationViewer : Gtk.Box {
     private const string MESSAGE_CONTAINER_ID = "message_container";
     private const string SELECTION_COUNTER_ID = "multiple_messages";
     private const string SPINNER_ID = "spinner";
+    private const Geary.Email.Field FULL_FETCH_FIELDS = ConversationViewer.REQUIRED_FIELDS |
+        Geary.ComposedEmail.REQUIRED_REPLY_FIELDS;
     
     private enum SearchState {
         // Search/find states.
@@ -302,7 +304,8 @@ public class ConversationViewer : Gtk.Box {
         // Fetch full messages.
         Gee.Collection<Geary.Email> messages_to_add = new Gee.HashSet<Geary.Email>();
         foreach (Geary.Email email in messages)
-            messages_to_add.add(yield fetch_full_message_async(email, cancellable));
+            messages_to_add.add(yield fetch_full_message_async(email, current_folder, FULL_FETCH_FIELDS,
+                cancellable));
         
         // Add messages.
         foreach (Geary.Email email in messages_to_add)
@@ -361,24 +364,6 @@ public class ConversationViewer : Gtk.Box {
         web_view.set_highlight_text_matches(true);
     }
     
-    // Given an email, fetch the full version with all required fields.
-    private async Geary.Email fetch_full_message_async(Geary.Email email,
-        Cancellable? cancellable) throws Error {
-        Geary.Email.Field required_fields = ConversationViewer.REQUIRED_FIELDS |
-            Geary.ComposedEmail.REQUIRED_REPLY_FIELDS;
-        
-        Geary.Email full_email;
-        if (email.id.folder_path == null) {
-            full_email = yield current_folder.account.local_fetch_email_async(
-                email.id, required_fields, cancellable);
-        } else {
-            full_email = yield current_folder.fetch_email_async(email.id,
-                required_fields, Geary.Folder.ListFlags.NONE, cancellable);
-        }
-        
-        return full_email;
-    }
-    
     // Cancels the current message load, if in progress.
     private void cancel_load() {
         Cancellable old_cancellable = cancellable_fetch;
@@ -392,7 +377,8 @@ public class ConversationViewer : Gtk.Box {
     }
     
     private async void on_conversation_appended_async(Geary.Email email) throws Error {
-        add_message(yield fetch_full_message_async(email, cancellable_fetch));
+        add_message(yield fetch_full_message_async(email, current_folder, FULL_FETCH_FIELDS,
+            cancellable_fetch));
     }
     
     private void on_conversation_appended_complete(Object? source, AsyncResult result) {

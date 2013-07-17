@@ -155,6 +155,7 @@ public class GearyController {
         
         // Connect to various UI signals.
         main_window.conversation_list_view.conversations_selected.connect(on_conversations_selected);
+        main_window.conversation_list_view.conversation_activated.connect(on_conversation_activated);
         main_window.conversation_list_view.load_more.connect(on_load_more);
         main_window.conversation_list_view.mark_conversation.connect(on_mark_conversation);
         main_window.conversation_list_view.visible_conversations_changed.connect(on_visible_conversations_changed);
@@ -870,6 +871,17 @@ public class GearyController {
         conversations_selected(selected_conversations, current_folder);
     }
     
+    private void on_conversation_activated(Geary.Conversation activated) {
+        // Currently activating a conversation is only available for drafts folders.
+        if (current_folder == null || current_folder.special_folder_type !=
+            Geary.SpecialFolderType.DRAFTS)
+            return;
+        
+        // TODO: Determine how to map between conversations and drafts correctly.
+        Geary.Email draft = activated.get_latest_email(true);
+        create_compose_window(ComposerWindow.ComposeType.NEW_MESSAGE, draft);
+    }
+    
     private void on_special_folder_type_changed(Geary.Folder folder, Geary.SpecialFolderType old_type,
         Geary.SpecialFolderType new_type) {
         main_window.folder_list.remove_folder(folder);
@@ -1406,14 +1418,30 @@ public class GearyController {
     
     private void create_compose_window(ComposerWindow.ComposeType compose_type,
         Geary.Email? referred = null, string? mailto = null) {
+        create_compose_window_async.begin(compose_type, referred, mailto);
+    }
+    
+    private async void create_compose_window_async(ComposerWindow.ComposeType compose_type,
+        Geary.Email? referred = null, string? mailto = null) {
         if (current_account == null)
             return;
         
         ComposerWindow window;
         if (mailto != null)
             window = new ComposerWindow.from_mailto(current_account, mailto);
-        else
-            window = new ComposerWindow(current_account, compose_type, referred);
+        else {
+            Geary.Email? full = null;
+            if (referred != null) {
+                try {
+                    full = yield fetch_full_message_async(referred, current_folder,
+                        Geary.ComposedEmail.REQUIRED_REPLY_FIELDS, cancellable_folder);
+                } catch (Error e) {
+                    warning("Could not load full message: %s", e.message);
+                }
+            }
+            
+            window = new ComposerWindow(current_account, compose_type, full);
+        }
         window.set_position(Gtk.WindowPosition.CENTER);
         window.send.connect(on_send);
         
