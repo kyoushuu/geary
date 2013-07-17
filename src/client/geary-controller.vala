@@ -1607,9 +1607,14 @@ public class GearyController {
     public void enable_message_buttons(bool sensitive) {
         update_tooltips();
         
-        GearyApplication.instance.actions.get_action(ACTION_REPLY_TO_MESSAGE).sensitive = sensitive;
-        GearyApplication.instance.actions.get_action(ACTION_REPLY_ALL_MESSAGE).sensitive = sensitive;
-        GearyApplication.instance.actions.get_action(ACTION_FORWARD_MESSAGE).sensitive = sensitive;
+        // No reply/forward in drafts folder.
+        bool respond_sensitive = sensitive;
+        if (current_folder != null && current_folder.special_folder_type == Geary.SpecialFolderType.DRAFTS)
+            respond_sensitive = false;
+        
+        GearyApplication.instance.actions.get_action(ACTION_REPLY_TO_MESSAGE).sensitive = respond_sensitive;
+        GearyApplication.instance.actions.get_action(ACTION_REPLY_ALL_MESSAGE).sensitive = respond_sensitive;
+        GearyApplication.instance.actions.get_action(ACTION_FORWARD_MESSAGE).sensitive = respond_sensitive;
         GearyApplication.instance.actions.get_action(ACTION_DELETE_MESSAGE).sensitive = sensitive
             && ((current_folder is Geary.FolderSupport.Remove) || (current_folder is Geary.FolderSupport.Archive));
         GearyApplication.instance.actions.get_action(ACTION_MARK_AS_MENU).sensitive =

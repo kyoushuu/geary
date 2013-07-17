@@ -1298,23 +1298,27 @@ public class ConversationViewer : Gtk.Box {
             menu.append(new Gtk.SeparatorMenuItem());
         }
         
-        // Reply to a message.
-        Gtk.MenuItem reply_item = new Gtk.MenuItem.with_mnemonic(_("_Reply"));
-        reply_item.activate.connect(() => reply_to_message(email));
-        menu.append(reply_item);
+        if (!in_drafts_folder()) {
+            // Reply to a message.
+            Gtk.MenuItem reply_item = new Gtk.MenuItem.with_mnemonic(_("_Reply"));
+            reply_item.activate.connect(() => reply_to_message(email));
+            menu.append(reply_item);
 
-        // Reply to all on a message.
-        Gtk.MenuItem reply_all_item = new Gtk.MenuItem.with_mnemonic(_("Reply to _All"));
-        reply_all_item.activate.connect(() => reply_all_message(email));
-        menu.append(reply_all_item);
+            // Reply to all on a message.
+            Gtk.MenuItem reply_all_item = new Gtk.MenuItem.with_mnemonic(_("Reply to _All"));
+            reply_all_item.activate.connect(() => reply_all_message(email));
+            menu.append(reply_all_item);
 
-        // Forward a message.
-        Gtk.MenuItem forward_item = new Gtk.MenuItem.with_mnemonic(_("_Forward"));
-        forward_item.activate.connect(() => forward_message(email));
-        menu.append(forward_item);
-
-        // Separator.
-        menu.append(new Gtk.SeparatorMenuItem());
+            // Forward a message.
+            Gtk.MenuItem forward_item = new Gtk.MenuItem.with_mnemonic(_("_Forward"));
+            forward_item.activate.connect(() => forward_message(email));
+            menu.append(forward_item);
+        }
+        
+        if (menu.get_children().length() > 0) {
+            // Separator.
+            menu.append(new Gtk.SeparatorMenuItem());
+        }
         
         // Mark as read/unread.
         if (email.id.folder_path != null && current_folder is Geary.FolderSupport.Mark) {
@@ -1796,6 +1800,11 @@ public class ConversationViewer : Gtk.Box {
         } catch (Error e) {
             debug("Error updating counter: %s", e.message);
         }
+    }
+    
+    private bool in_drafts_folder() {
+        return current_folder != null && current_folder.special_folder_type
+            == Geary.SpecialFolderType.DRAFTS;
     }
 }
 
