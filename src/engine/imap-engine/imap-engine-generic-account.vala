@@ -536,9 +536,104 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
         return yield local.get_search_matches_async(previous_prepared_search_query, ids, cancellable);
     }
     
-    public override async Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? get_containing_folders_async(
-        Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error {
-        return yield local.get_containing_folders_async(ids, cancellable);
+    private async Gee.HashMap<Geary.FolderPath, Geary.Folder> get_folder_instances_async(
+        Gee.Collection<Geary.FolderPath> paths, Cancellable? cancellable) throws Error {
+        Gee.HashMap<Geary.FolderPath, Geary.Folder> folders
+            = new Gee.HashMap<Geary.FolderPath, Geary.Folder>();
+        foreach (Geary.FolderPath path in paths) {
+            // TODO: can this be done away with?
+            Geary.Folder folder = yield fetch_folder_async(path, cancellable);
+            folders.set(path, folder);
+        }
+        return folders;
+    }
+    
+    private Gee.ArrayList<Geary.FolderPath> order_folders(
+        Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids,
+        Gee.Map<Geary.FolderPath, Geary.Folder> folders, Type folder_type) throws Error {
+        Gee.HashSet<Geary.FolderPath> open_folders = new Gee.HashSet<Geary.FolderPath>();
+        foreach (Geary.FolderPath path in folders_to_ids.get_keys()) {
+            assert(folders.has_key(path));
+            
+            // TODO: support REMOTE- or LOCAL-only here?
+            if (folders.get(path).get_open_state() == Geary.Folder.OpenState.BOTH)
+                open_folders.add(path);
+        }
+        
+        Gee.ArrayList<Geary.FolderPath> open_order = new Gee.ArrayList<Geary.FolderPath>();
+        Gee.ArrayList<Geary.FolderPath> closed_order = new Gee.ArrayList<Geary.FolderPath>();
+        foreach (Geary.FolderPath path in folders_to_ids.get_keys()) {
+            if (!folders.get(path).get_type().is_a(folder_type))
+                continue;
+            
+            ((path in open_folders) ? open_order : closed_order).add(path);
+        }
+        
+        CompareDataFunc<Geary.FolderPath> comparator = (a, b) => {
+            // Descending by id count in each folder.
+            return (folders_to_ids.get(b).size - folders_to_ids.get(a).size);
+        };
+        open_order.sort((owned) comparator);
+        closed_order.sort((owned) comparator);
+        
+        open_order.add_all(closed_order);
+        return open_order;
+    }
+    
+    public override async void mark_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
+        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove,
+        Cancellable? cancellable = null) throws Error {
+        Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? ids_to_folders
+            = yield local.get_containing_folders_async(emails, cancellable);
+        Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids
+            = Geary.Collection.reverse_multi_map<Geary.EmailIdentifier, Geary.FolderPath>(ids_to_folders);
+        Gee.HashMap<Geary.FolderPath, Geary.Folder> folders
+            = yield get_folder_instances_async(folders_to_ids.get_keys(), cancellable);
+        
+        // TODO: instead of ordering the folders up front, we might want to
+        // wait for each iteration to find the next open one with the most ids.
+        // Since we remove ids from our list as we mark them, we could end up
+        // using a non-optimal order if it happens up front.
+        foreach (Geary.FolderPath path
+            in order_folders(folders_to_ids, folders, typeof(Geary.FolderSupport.Mark))) {
+            // TODO: parallelize?
+            Gee.List<Geary.EmailIdentifier> ids
+                = Geary.Collection.to_array_list<Geary.EmailIdentifier>(folders_to_ids.get(path));
+            if (ids.size == 0)
+                continue;
+            
+            Geary.FolderSupport.Mark? folder = folders.get(path) as Geary.FolderSupport.Mark;
+            assert(folder != null);
+            
+            bool open = false;
+            try {
+                yield folder.open_async(Geary.Folder.OpenFlags.NONE, cancellable);
+                open = true;
+                // FIXME: get folder-specific ids.  This won't work.
+                yield folder.mark_email_async(ids, flags_to_add, flags_to_remove, cancellable);
+                yield folder.close_async(cancellable);
+                open = false;
+                
+                // We don't want to mark any mails twice.
+                foreach (Geary.EmailIdentifier id in ids) {
+                    foreach (Geary.FolderPath p in ids_to_folders.get(id))
+                        folders_to_ids.remove(p, id);
+                }
+            } catch (Error e) {
+                debug("Error marking messages in %s: %s", folder.to_string(), e.message);
+                if (open) {
+                    try {
+                        yield folder.close_async(cancellable);
+                        open = false;
+                    } catch (Error e) {
+                        debug("Error closing folder %s: %s", folder.to_string(), e.message);
+                    }
+                }
+            }
+        }
+        
+        if (folders_to_ids.size > 0)
+            debug("Some messages in conversation %s could not be marked", to_string());
     }
     
     private void on_login_failed(Geary.Credentials? credentials) {
