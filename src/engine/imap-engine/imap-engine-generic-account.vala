@@ -548,36 +548,35 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
         return folders;
     }
     
-    private Gee.ArrayList<Geary.FolderPath> order_folders(
+    private Geary.FolderPath? next_folder_for_operation(
         Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids,
         Gee.Map<Geary.FolderPath, Geary.Folder> folders, Type folder_type) throws Error {
-        Gee.HashSet<Geary.FolderPath> open_folders = new Gee.HashSet<Geary.FolderPath>();
+        bool best_is_open = false;
+        int best_count = 0;
+        Geary.FolderPath? best = null;
         foreach (Geary.FolderPath path in folders_to_ids.get_keys()) {
             assert(folders.has_key(path));
-            
-            // TODO: support REMOTE- or LOCAL-only here?
-            if (folders.get(path).get_open_state() == Geary.Folder.OpenState.BOTH)
-                open_folders.add(path);
-        }
-        
-        Gee.ArrayList<Geary.FolderPath> open_order = new Gee.ArrayList<Geary.FolderPath>();
-        Gee.ArrayList<Geary.FolderPath> closed_order = new Gee.ArrayList<Geary.FolderPath>();
-        foreach (Geary.FolderPath path in folders_to_ids.get_keys()) {
             if (!folders.get(path).get_type().is_a(folder_type))
                 continue;
             
-            ((path in open_folders) ? open_order : closed_order).add(path);
+            // TODO: support REMOTE- or LOCAL-only here?
+            if (folders.get(path).get_open_state() == Geary.Folder.OpenState.BOTH) {
+                if (!best_is_open) {
+                    best_is_open = true;
+                    best_count = 0;
+                }
+            } else if (best_is_open) {
+                continue;
+            }
+            
+            int count = folders_to_ids.get(path).size;
+            if (count > best_count) {
+                best_count = count;
+                best = path;
+            }
         }
         
-        CompareDataFunc<Geary.FolderPath> comparator = (a, b) => {
-            // Descending by id count in each folder.
-            return (folders_to_ids.get(b).size - folders_to_ids.get(a).size);
-        };
-        open_order.sort((owned) comparator);
-        closed_order.sort((owned) comparator);
-        
-        open_order.add_all(closed_order);
-        return open_order;
+        return best;
     }
     
     public override async void mark_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
@@ -590,12 +589,9 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
         Gee.HashMap<Geary.FolderPath, Geary.Folder> folders
             = yield get_folder_instances_async(folders_to_ids.get_keys(), cancellable);
         
-        // TODO: instead of ordering the folders up front, we might want to
-        // wait for each iteration to find the next open one with the most ids.
-        // Since we remove ids from our list as we mark them, we could end up
-        // using a non-optimal order if it happens up front.
-        foreach (Geary.FolderPath path
-            in order_folders(folders_to_ids, folders, typeof(Geary.FolderSupport.Mark))) {
+        Geary.FolderPath? path;
+        while ((path = next_folder_for_operation(folders_to_ids, folders,
+            typeof(Geary.FolderSupport.Mark))) != null) {
             // TODO: parallelize?
             Gee.List<Geary.EmailIdentifier> ids
                 = Geary.Collection.to_array_list<Geary.EmailIdentifier>(folders_to_ids.get(path));
