@@ -219,9 +219,7 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         Geary.Email.Field normalization_fields = is_fast_open ? FAST_NORMALIZATION_FIELDS : NORMALIZATION_FIELDS;
         
         for (;;) {
-            Geary.Imap.EmailIdentifier current_end_id = new Geary.Imap.EmailIdentifier(
-                new Imap.UID(current_start_id.uid.value + NORMALIZATION_CHUNK_COUNT),
-                current_start_id.folder_path);
+            Imap.UID current_end_uid = new Imap.UID(current_start_uid.value + NORMALIZATION_CHUNK_COUNT);
             
             // Get the local emails in the range ... use PARTIAL_OK to ensure all emails are normalized
             Gee.List<Geary.Email>? old_local = yield local_folder.list_email_by_range_async(
@@ -1079,7 +1077,13 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         
         // if before_id available, only search for messages before it
         if (before_id != null) {
-            Imap.UID before_uid = ((Imap.EmailIdentifier) before_id).uid;
+            Imap.UID? before_uid = yield local_folder.get_email_uid_async((ImapDB.EmailIdentifier) before_id,
+                cancellable);
+            if (before_uid == null) {
+                throw new EngineError.NOT_FOUND("before_id %s not found in %s", before_id.to_string(),
+                    to_string());
+            }
+            
             criteria.and(Imap.SearchCriterion.message_set(
                 new Imap.MessageSet.uid_range(new Imap.UID(Imap.UID.MIN), before_uid.previous())));
         }

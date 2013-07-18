@@ -109,21 +109,6 @@ public class Geary.Email : BaseObject {
      */
     public Geary.EmailIdentifier id { get; private set; }
     
-    /**
-     * A {@link Folder}-based ordering field indicating the "natural" ordering of {@link Email}.
-     *
-     * This field is not present if the Email was generated from an {@link Account} interface,
-     * where the notion of ordering does not make sense.
-     *
-     * ordering is zero-based.  A negative ordering indicates it's unavailable for this Email
-     */
-    public int64 ordering { get; private set; }
-    public bool has_ordering {
-        get {
-            return ordering >= 0;
-        }
-    }
-    
     // DATE
     public Geary.RFC822.Date? date { get; private set; default = null; }
     
@@ -166,9 +151,8 @@ public class Geary.Email : BaseObject {
     
     private Geary.RFC822.Message? message = null;
     
-    public Email(Geary.EmailIdentifier id, int64 ordering) {
+    public Email(Geary.EmailIdentifier id) {
         this.id = id;
-        this.ordering = ordering;
     }
     
     /**

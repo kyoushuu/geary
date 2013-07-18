@@ -5,7 +5,11 @@
  */
 
 private class Geary.ImapDB.EmailIdentifier : Geary.EmailIdentifier {
-    public EmailIdentifier(int64 message_id) {
-        base (message_id);
+    public Imap.UID? uid { get; private set; }
+    
+    public EmailIdentifier(int64 message_id, Imap.UID? uid) {
+        base (message_id, uid);
+        
+        this.uid = uid;
     }
 }

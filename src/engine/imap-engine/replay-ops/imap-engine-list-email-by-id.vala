@@ -5,16 +5,16 @@
  */
 
 private class Geary.ImapEngine.ListEmailByID : Geary.ImapEngine.AbstractListEmail {
-    private Imap.EmailIdentifier? initial_id;
+    private ImapDB.EmailIdentifier? initial_id;
     private int count;
     private int local_list_count = 0;
     
-    public ListEmailByID(GenericFolder owner, Geary.EmailIdentifier? initial_id, int count,
+    public ListEmailByID(GenericFolder owner, ImapDB.EmailIdentifier? initial_id, int count,
         Geary.Email.Field required_fields, Folder.ListFlags flags, Gee.List<Geary.Email>? accumulator,
         EmailCallback? cb, Cancellable? cancellable) {
         base ("ListEmailByID", owner, required_fields, flags, accumulator, cb, cancellable);
         
-        this.initial_id = (Imap.EmailIdentifier?) initial_id;
+        this.initial_id = initial_id;
         this.count = count;
     }
     
@@ -132,9 +132,18 @@ private class Geary.ImapEngine.ListEmailByID : Geary.ImapEngine.AbstractListEmai
                 // However ... there is some internal code (search, specifically) that relies on
                 // being able to pass in an EmailIdentifier with a UID unknown locally, and so that
                 // needs to be taken accounted of
+                Imap.UID? initial_uid = yield owner.local_folder.get_email_uid_async(initial_id,
+                    cancellable);
+                if (initial_uid == null) {
+                    debug("%s: Unable to expand vector for initial_id=%s: unable to convert to UID",
+                        to_string(), initial_id.to_string());
+                    
+                    return null;
+                }
+                
                 Gee.Map<Imap.UID, Imap.SequenceNumber>? map = yield owner.remote_folder.uid_to_position_async(
-                    new Imap.MessageSet.uid(initial_id.uid), cancellable);
-                if (map == null || map.size == 0 || !map.has_key(initial_id.uid)) {
+                    new Imap.MessageSet.uid(initial_uid), cancellable);
+                if (map == null || map.size == 0 || !map.has_key(initial_uid)) {
                     debug("%s: Unable to expand vector for initial_id=%s: unable to convert to position",
                         to_string(), initial_id.to_string());
                     

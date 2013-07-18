@@ -215,58 +215,6 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         properties.set_select_examine_message_count(count);
     }
     
-    // Returns null if the EmailIdentifier is not associated with this Folder.
-    public async Imap.UID? get_email_uid_async(Geary.EmailIdentifier id, Cancellable? cancellable)
-        throws Error {
-        check_open();
-        
-        int64 message_id = ((ImapDB.EmailIdentifier) id).value;
-        
-        Imap.UID? uid = null;
-        yield db.exec_transaction_async(Db.TransactionType.RO, (cx) => {
-            Db.Statement stmt = cx.prepare("""
-                SELECT ordering
-                FROM MessageLocationTable
-                WHERE message_id=? AND folder_id=?
-            """);
-            stmt.bind_rowid(0, message_id);
-            stmt.bind_rowid(1, folder_id);
-            
-            Db.Result results = stmt.exec(cancellable);
-            if (!results.finished)
-                uid = new Imap.UID(results.int64_at(0));
-            
-            return Db.TransactionOutcome.SUCCESS;
-        }, cancellable);
-        
-        return uid;
-    }
-    
-    // Returns null if the UID is not found in this Folder.
-    public async Geary.EmailIdentifier? get_email_id_async(Imap.UID uid, Cancellable? cancellable)
-        throws Error {
-        check_open();
-        
-        Geary.EmailIdentifier? id = null;
-        yield db.exec_transaction_async(Db.TransactionType.RO, (cx) => {
-            Db.Statement stmt = cx.prepare("""
-                SELECT message_id
-                FROM MessageLocationTable
-                WHERE ordering=? AND folder_id=?
-            """);
-            stmt.bind_rowid(0, uid.value);
-            stmt.bind_rowid(1, folder_id);
-            
-            Db.Result results = stmt.exec(cancellable);
-            if (!results.finished)
-                id = new ImapDB.EmailIdentifier(results.int64_at(0));
-            
-            return Db.TransactionOutcome.SUCCESS;
-        }, cancellable);
-        
-        return id;
-    }
-    
     // Returns a Map with the created or merged email as the key and the result of the operation
     // (true if created, false if merged) as the value
     public async Gee.Map<Geary.Email, bool> create_or_merge_email_async(Gee.Collection<Geary.Email> emails,
@@ -322,34 +270,39 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         return results;
     }
     
-    public async Gee.List<Geary.Email>? list_email_by_id_async(Geary.EmailIdentifier? initial_id,
+    public async Gee.List<Geary.Email>? list_email_by_id_async(ImapDB.EmailIdentifier? initial_id,
         int count, Geary.Email.Field required_fields, ListFlags flags, Cancellable? cancellable)
         throws Error {
-        if (count == 0)
+        if (count <= 0)
             return null;
         
         bool including_id = flags.is_all_set(ListFlags.INCLUDING_ID);
         bool oldest_to_newest = flags.is_all_set(ListFlags.OLDEST_TO_NEWEST);
         
-        int64 start;
-        if (initial_id != null) {
-            start = ((Geary.Imap.EmailIdentifier) initial_id).uid.value;
-            if (!including_id)
-                start += oldest_to_newest ? 1 : -1;
-            
-            // watch for underrun and overrun, which indicates BOL/EOL
-            if (start < Imap.UID.MIN || start > Imap.UID.MAX)
-                return null;
-        } else if (oldest_to_newest) {
-            start = Imap.UID.MIN;
-        } else {
-            start = Imap.UID.MAX;
-        }
-        
         // Break up work so all reading isn't done in single transaction that locks up the
         // database ... first, gather locations of all emails in database
         Gee.List<LocationIdentifier> ids = new Gee.ArrayList<LocationIdentifier>();
         yield db.exec_transaction_async(Db.TransactionType.RO, (cx) => {
+            // convert initial_id into UID to start walking the list
+            Imap.UID? start_uid = null;
+            if (initial_id != null) {
+                start_uid = do_get_uid_for(cx, initial_id, cancellable);
+                if (start_uid == null)
+                    return Db.TransactionOutcome.DONE;
+                
+                // deal with exclusive searches
+                if (!including_id) {
+                    if (oldest_to_newest)
+                        start_uid = start_uid.next();
+                    else
+                        start_uid = start_uid.previous();
+                }
+            } else if (oldest_to_newest) {
+                start_uid = new Imap.UID(Imap.UID.MIN);
+            } else {
+                start_uid = new Imap.UID(Imap.UID.MAX);
+            }
+            
             Db.Statement stmt;
             if (oldest_to_newest) {
                 stmt = cx.prepare("""
@@ -369,7 +322,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
                     """);
             }
             stmt.bind_rowid(0, folder_id);
-            stmt.bind_int64(1, start);
+            stmt.bind_int64(1, start_uid.value);
             stmt.bind_int(2, count);
             
             Db.Result results = stmt.exec(cancellable);
@@ -395,35 +348,41 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         return yield list_email_in_chunks_async(ids, required_fields, flags, cancellable);
     }
     
-    // ListFlags.OLDEST_TO_NEWEST is ignored
-    public async Gee.List<Geary.Email>? list_email_by_range_async(Geary.EmailIdentifier start_id,
-        Geary.EmailIdentifier end_id, Geary.Email.Field required_fields, ListFlags flags, Cancellable? cancellable)
+    // ListFlags.OLDEST_TO_NEWEST is ignored.  INCLUDING_ID means including *both* identifiers.
+    // Without this flag, neither are considered as part of the range.
+    public async Gee.List<Geary.Email>? list_email_by_range_async(ImapDB.EmailIdentifier start_id,
+        ImapDB.EmailIdentifier end_id, Geary.Email.Field required_fields, ListFlags flags, Cancellable? cancellable)
         throws Error {
         bool including_id = flags.is_all_set(ListFlags.INCLUDING_ID);
-        
-        int64 start = ((Geary.Imap.EmailIdentifier) start_id).uid.value;
-        if (!including_id)
-            start++;
-        
-        int64 end = ((Geary.Imap.EmailIdentifier) end_id).uid.value;
-        if (!including_id)
-            end--;
-        
-        if (start > end || start < Imap.UID.MIN || end > Imap.UID.MAX)
-            return null;
         
         // Break up work so all reading isn't done in single transaction that locks up the
         // database ... first, gather locations of all emails in database
         Gee.List<LocationIdentifier> ids = new Gee.ArrayList<LocationIdentifier>();
         yield db.exec_transaction_async(Db.TransactionType.RO, (cx) => {
+            Imap.UID? start_uid = do_get_uid_for(cx, start_id, cancellable);
+            if (start_uid == null)
+                return Db.TransactionOutcome.DONE;
+            
+            Imap.UID? end_uid = do_get_uid_for(cx, end_id, cancellable);
+            if (end_uid == null)
+                return Db.TransactionOutcome.DONE;
+            
+            if (!including_id) {
+                start_uid = start_uid.next();
+                end_uid = end_uid.previous();
+            }
+            
+            if (start_uid.compare_to(end_uid) > 0)
+                return Db.TransactionOutcome.DONE;
+            
             Db.Statement stmt = cx.prepare("""
                 SELECT message_id, ordering
                 FROM MessageLocationTable
                 WHERE folder_id = ? AND ordering >= ? AND ordering <= ?
             """);
             stmt.bind_rowid(0, folder_id);
-            stmt.bind_int64(1, start);
-            stmt.bind_int64(2, end);
+            stmt.bind_int64(1, start_uid.value);
+            stmt.bind_int64(2, end_uid.value);
             
             Db.Result results = stmt.exec(cancellable);
             if (results.finished)
@@ -532,6 +491,36 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         }, cancellable);
         
         return Imap.UID.is_value_valid(ordering) ? new Imap.UID(ordering) : null;
+    }
+    
+    // Returns null if the EmailIdentifier is not associated with this Folder.
+    public async Imap.UID? get_email_uid_async(ImapDB.EmailIdentifier id, Cancellable? cancellable)
+        throws Error {
+        check_open();
+        
+        Imap.UID? uid = null;
+        yield db.exec_transaction_async(Db.TransactionType.RO, (cx) => {
+            uid = do_get_uid_for(cx, id, cancellable);
+            
+            return Db.TransactionOutcome.DONE;
+        }, cancellable);
+        
+        return uid;
+    }
+    
+    // Returns null if the UID is not found in this Folder.
+    public async ImapDB.EmailIdentifier? get_email_id_async(Imap.UID uid, Cancellable? cancellable)
+        throws Error {
+        check_open();
+        
+        ImapDB.EmailIdentifier? id = null;
+        yield db.exec_transaction_async(Db.TransactionType.RO, (cx) => {
+            id = do_get_id_for(cx, uid, cancellable);
+            
+            return Db.TransactionOutcome.DONE;
+        }, cancellable);
+        
+        return id;
     }
     
     public async Geary.Imap.UID? get_earliest_uid_async(Cancellable? cancellable = null) throws Error {
@@ -1693,6 +1682,34 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         update_stmt.bind_rowid(2, folder_id);
             
         update_stmt.exec(cancellable);
+    }
+    
+    private Imap.UID? do_get_uid_for(Db.Connection cx, ImapDB.EmailIdentifier id, Cancellable? cancellable) {
+        Db.Statement stmt = cx.prepare("""
+            SELECT ordering
+            FROM MessageLocationTable
+            WHERE message_id=? AND folder_id=?
+        """);
+        stmt.bind_rowid(0, message_id);
+        stmt.bind_rowid(1, folder_id);
+        
+        Db.Result results = stmt.exec(cancellable);
+        
+        return !results.finished ? new Imap.UID(results.int64_at(0)) : null;
+    }
+    
+    private ImapDB.EmailIdentifier? do_get_id_for(Db.Connection cx, Imap.UID uid, Cancellable? cancellable) {
+        Db.Statement stmt = cx.prepare("""
+            SELECT message_id
+            FROM MessageLocationTable
+            WHERE ordering=? AND folder_id=?
+        """);
+        stmt.bind_rowid(0, uid.value);
+        stmt.bind_rowid(1, folder_id);
+        
+        Db.Result results = stmt.exec(cancellable);
+        
+        return !results.finished ? new ImapDB.EmailIdentifier(results.int64_at(0)) : null;
     }
 }
 
