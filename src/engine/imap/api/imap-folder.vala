@@ -450,6 +450,29 @@ private class Geary.Imap.Folder : BaseObject {
         return (email_list.size > 0) ? email_list : null;
     }
     
+    public async Gee.Map<UID, SequenceNumber>? uid_to_position_async(MessageSet msg_set,
+        Cancellable? cancellable) throws Error {
+        check_open();
+        
+        // MessageSet better be UID addressing
+        assert(msg_set.is_uid);
+        
+        Gee.List<Command> cmds = new Gee.ArrayList<Command>();
+        cmds.add(new FetchCommand.data_type(msg_set, FetchDataType.UID));
+        
+        Gee.HashMap<SequenceNumber, FetchedData>? fetched;
+        yield exec_commands_async(cmds, out fetched, null, cancellable);
+        
+        if (fetched == null || fetched.size == 0)
+            return null;
+        
+        Gee.Map<UID, SequenceNumber> map = new Gee.HashMap<UID, SequenceNumber>();
+        foreach (SequenceNumber seq_num in fetched.keys)
+            map.set((UID) fetched.get(seq_num).data_map.get(FetchDataType.UID), seq_num);
+        
+        return map;
+    }
+    
     public async void remove_email_async(MessageSet msg_set, Cancellable? cancellable) throws Error {
         check_open();
         
@@ -622,7 +645,6 @@ private class Geary.Imap.Folder : BaseObject {
         FetchBodyDataIdentifier? preview_identifier, FetchBodyDataIdentifier? preview_charset_identifier)
         throws Error {
         Geary.Email email = new Geary.Email.no_identifier(uid.value);
-        email.position = fetched_data.seq_num.value;
         
         // accumulate these to submit Imap.EmailProperties all at once
         InternalDate? internaldate = null;
