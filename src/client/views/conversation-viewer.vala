@@ -89,7 +89,10 @@ public class ConversationViewer : Gtk.Box {
 
     // Fired when the user wants to save one or more attachments.
     public signal void save_attachments(Gee.List<Geary.Attachment> attachment);
-
+    
+    // Fired when the user clicks the edit draft button.
+    public signal void edit_draft(Geary.Email message);
+    
     // List of emails in this view.
     public Gee.TreeSet<Geary.Email> messages { get; private set; default = 
         new Geary.Collection.FixedTreeSet<Geary.Email>(Geary.Email.compare_date_ascending); }
@@ -468,6 +471,19 @@ public class ConversationViewer : Gtk.Box {
         // Add classes according to the state of the email.
         update_flags(email);
         
+        // Edit draft button for drafts folder.
+        if (in_drafts_folder() && email.id.folder_path != null) {
+            WebKit.DOM.HTMLElement draft_edit_container = Util.DOM.select(div_message, ".draft_edit");
+            WebKit.DOM.HTMLElement draft_edit_button =
+                Util.DOM.select(div_message, ".draft_edit_button");
+            try {
+                draft_edit_container.set_attribute("style", "display:block");
+                draft_edit_button.set_inner_html(_("Edit Draft"));
+            } catch (Error e) {
+                warning("Error setting draft button: %s", e.message);
+            }
+        }
+        
         // Add animation class after other classes set, to avoid initial animation.
         Idle.add(() => {
             try {
@@ -485,6 +501,7 @@ public class ConversationViewer : Gtk.Box {
         bind_event(web_view, ".email_container .menu", "click", (Callback) on_menu_clicked, this);
         bind_event(web_view, ".email_container .starred", "click", (Callback) on_unstar_clicked, this);
         bind_event(web_view, ".email_container .unstarred", "click", (Callback) on_star_clicked, this);
+        bind_event(web_view, ".email_container .draft_edit .button", "click", (Callback) on_draft_edit_menu, this);
         bind_event(web_view, ".header .field .value", "click", (Callback) on_value_clicked, this);
         bind_event(web_view, ".email:not(:only-of-type) .header_container, .email .email .header_container","click", (Callback) on_body_toggle_clicked, this);
         bind_event(web_view, ".email .compressed_note", "click", (Callback) on_body_toggle_clicked, this);
@@ -1081,6 +1098,17 @@ public class ConversationViewer : Gtk.Box {
         bind_event(web_view, ".link_warning .close_link_warning, .link_warning a", "click",
             (Callback) on_close_link_warning, this);
         return true;
+    }
+    
+    private static void on_draft_edit_menu(WebKit.DOM.Element element, WebKit.DOM.Event event,
+        ConversationViewer conversation_viewer) {
+        event.stop_propagation();
+        
+        Geary.Email? email = conversation_viewer.get_email_from_element(element);
+        if (email == null)
+            return;
+        
+        conversation_viewer.edit_draft(email);
     }
     
     /*

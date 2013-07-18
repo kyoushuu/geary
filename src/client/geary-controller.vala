@@ -172,7 +172,8 @@ public class GearyController {
         main_window.conversation_viewer.mark_message.connect(on_conversation_viewer_mark_message);
         main_window.conversation_viewer.open_attachment.connect(on_open_attachment);
         main_window.conversation_viewer.save_attachments.connect(on_save_attachments);
-
+        main_window.conversation_viewer.edit_draft.connect(on_edit_draft);
+        
         new_messages_monitor = new NewMessagesMonitor(should_notify_new_messages);
         main_window.folder_list.set_new_messages_monitor(new_messages_monitor);
         
@@ -878,7 +879,10 @@ public class GearyController {
             return;
         
         // TODO: Determine how to map between conversations and drafts correctly.
-        Geary.Email draft = activated.get_latest_email(true);
+        on_edit_draft(activated.get_latest_email(true));
+    }
+    
+    private void on_edit_draft(Geary.Email draft) {
         create_compose_window(ComposerWindow.ComposeType.NEW_MESSAGE, draft);
     }
     
