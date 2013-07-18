@@ -1447,7 +1447,6 @@ public class GearyController {
             window = new ComposerWindow(current_account, compose_type, full);
         }
         window.set_position(Gtk.WindowPosition.CENTER);
-        window.send.connect(on_send);
         
         // We want to keep track of the open composer windows, so we can allow the user to cancel
         // an exit without losing their data.
@@ -1568,11 +1567,6 @@ public class GearyController {
 
     private void on_zoom_normal() {
         main_window.conversation_viewer.web_view.zoom_level = 1.0f;
-    }
-    
-    private void on_send(ComposerWindow composer_window) {
-        composer_window.account.send_email_async.begin(composer_window.get_composed_email());
-        composer_window.destroy();
     }
 
     private void on_sent(Geary.RFC822.Message rfc822) {
