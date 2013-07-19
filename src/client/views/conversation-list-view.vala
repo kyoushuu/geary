@@ -359,7 +359,9 @@ public class ConversationListView : Gtk.TreeView {
     }
     
     private void on_row_activated(Gtk.TreePath path) {
-        conversation_activated(conversation_list_store.get_conversation_at_path(path));
+        Geary.Conversation? c = conversation_list_store.get_conversation_at_path(path);
+        if (c != null)
+            conversation_activated(c);
     }
 }
 
