@@ -741,10 +741,11 @@ public class ComposerWindow : Gtk.Window {
     }
     
     // Returns the drafts folder for the current From account.
-    private Geary.Folder? get_drafts_folder() {
-        Geary.Folder? drafts_folder = null;
+    private Geary.FolderSupport.Create? get_drafts_folder() {
+        Geary.FolderSupport.Create? drafts_folder = null;
         try {
-            drafts_folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS);
+            drafts_folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS) as 
+                Geary.FolderSupport.Create;
         } catch (Error e) {
             debug("Error getting drafts folder: %s", e.message);
         }
@@ -755,16 +756,15 @@ public class ComposerWindow : Gtk.Window {
     // Save to the draft folder, if available.
     // Note that drafts are NOT "linkified."
     private void on_save() {
-        Geary.Folder? drafts_folder = get_drafts_folder();
+        Geary.FolderSupport.Create? drafts_folder = get_drafts_folder();
         if (drafts_folder == null) {
             stdout.printf("No drafts folder available for this account.\n");
             
             return;
         }
         
-        account.create_email_async.begin(drafts_folder.path, 
-            new Geary.RFC822.Message.from_composed_email(get_composed_email()),
-            new Geary.EmailFlags(), null, null);
+        drafts_folder.create_email_async.begin(new Geary.RFC822.Message.from_composed_email(
+            get_composed_email()), new Geary.EmailFlags(), null, null);
     }
     
     private void on_add_attachment_button_clicked() {

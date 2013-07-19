@@ -296,8 +296,8 @@ public interface Geary.Account : BaseObject {
      * @throws EngineError.NOT_FOUND If {@link FolderPath} could not be resolved.
      * @throws EngineError.UNSUPPORTED If the Folder does not support FolderSupport.Create.
      */
-    public abstract async void create_email_async(Geary.FolderPath path, Geary.RFC822.Message rfc822,
-        Geary.EmailFlags? flags, DateTime? date_received, Cancellable? cancellable = null) throws Error;
+//    public abstract async void create_email_async(Geary.FolderPath path, Geary.RFC822.Message rfc822,
+//        Geary.EmailFlags? flags, DateTime? date_received, Cancellable? cancellable = null) throws Error;
     
     /**
      * Used only for debugging.  Should not be used for user-visible strings.
