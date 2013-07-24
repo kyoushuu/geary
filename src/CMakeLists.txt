@@ -45,7 +45,6 @@ engine/api/geary-folder-supports-remove.vala
 engine/api/geary-logging.vala
 engine/api/geary-named-flag.vala
 engine/api/geary-named-flags.vala
-engine/api/geary-null-email-identifier.vala
 engine/api/geary-progress-monitor.vala
 engine/api/geary-search-folder.vala
 engine/api/geary-service-provider.vala
@@ -203,6 +202,7 @@ engine/imap-engine/replay-ops/imap-engine-move-email.vala
 engine/imap-engine/replay-ops/imap-engine-replay-append.vala
 engine/imap-engine/replay-ops/imap-engine-replay-disconnect.vala
 engine/imap-engine/replay-ops/imap-engine-replay-removal.vala
+engine/imap-engine/replay-ops/imap-engine-server-search-email.vala
 engine/imap-engine/yahoo/imap-engine-yahoo-account.vala
 engine/imap-engine/yahoo/imap-engine-yahoo-folder.vala
 

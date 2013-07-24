@@ -644,7 +644,10 @@ private class Geary.Imap.Folder : BaseObject {
         FetchBodyDataIdentifier? partial_header_identifier, FetchBodyDataIdentifier? body_identifier,
         FetchBodyDataIdentifier? preview_identifier, FetchBodyDataIdentifier? preview_charset_identifier)
         throws Error {
-        Geary.Email email = new Geary.Email.no_identifier(uid.value);
+        // note the use of INVALID_ROWID, as the rowid for this email (if one is present in the
+        // database) is unknown at this time; this means ImapDB *must* create a new EmailIdentifier
+        // for this email after create/merge is completed
+        Geary.Email email = new Geary.Email(new ImapDB.EmailIdentifier.no_message_id(uid));
         
         // accumulate these to submit Imap.EmailProperties all at once
         InternalDate? internaldate = null;

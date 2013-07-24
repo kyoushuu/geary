@@ -6,6 +6,26 @@
 
 namespace Geary.Collection {
 
+public class Int64 : BaseObject, Gee.Comparable<Int64>, Gee.Hashable<Int64> {
+    public int64 value { get; private set; }
+    
+    public Int64(int64 value) {
+        this.value = value;
+    }
+    
+    public int compare_to(Int64 other) {
+        return (int) (value - other.value).clamp(-1, 1);
+    }
+    
+    public uint hash() {
+        return int64_hash(value);
+    }
+    
+    public bool equal_to(Int64 other) {
+        return value == other.value;
+    }
+}
+
 public Gee.ArrayList<G> to_array_list<G>(Gee.Collection<G> c) {
     Gee.ArrayList<G> list = new Gee.ArrayList<G>();
     list.add_all(c);

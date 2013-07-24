@@ -155,15 +155,6 @@ public class Geary.Email : BaseObject {
         this.id = id;
     }
     
-    /**
-     * Used internally for generating {@link Email} objects prior to their unique
-     * {@link EmailIdentifier} being available.
-     */
-    internal Email.no_identifier(int64 ordering) {
-        this.ordering = ordering;
-        id = new NullEmailIdentifier();
-    }
-    
     public inline Trillian is_unread() {
         return email_flags != null ? Trillian.from_boolean(email_flags.is_unread()) : Trillian.UNKNOWN;
     }
@@ -394,17 +385,13 @@ public class Geary.Email : BaseObject {
         return compare_date_ascending(bemail, aemail);
     }
     
-    /**
-     * CompareFunc to sort Email by EmailIdentifier.
-     */
-    public static int compare_id_ascending(Geary.Email aemail, Geary.Email bemail) {
+    // only used to stabilize a sort
+    private static int compare_id_ascending(Geary.Email aemail, Geary.Email bemail) {
         return aemail.id.compare_to(bemail.id);
     }
     
-    /**
-     * CompareFunc to sort Email by EmailIdentifier.
-     */
-    public static int compare_id_descending(Geary.Email aemail, Geary.Email bemail) {
+    // only used to stabilize a sort
+    private static int compare_id_descending(Geary.Email aemail, Geary.Email bemail) {
         return compare_id_ascending(bemail, aemail);
     }
     

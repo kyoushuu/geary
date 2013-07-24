@@ -26,16 +26,16 @@
 
 public abstract class Geary.EmailIdentifier : BaseObject, Gee.Hashable<Geary.EmailIdentifier>,
     Gee.Comparable<Geary.EmailIdentifier> {
-    public Gee.Comparable? ordering { get; private set; }
+    //public Gee.Comparable? ordering { get; private set; }
     
-    internal int64 value;
+    private int64 value;
     
     // Although hidden from the user, uniqueness is established via a 64-bit value.  Since different
     // Email generators may use different storage or identification techniques, each subsystem
     // should implement a subclass.  This is used in equal_to() for testing.
     protected EmailIdentifier(int64 value, Gee.Comparable? ordering) {
         this.value = value;
-        this.ordering = ordering;
+        //this.ordering = ordering;
     }
     
     public virtual uint hash() {
