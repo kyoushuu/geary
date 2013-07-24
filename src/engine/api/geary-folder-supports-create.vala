@@ -15,11 +15,11 @@
  */
 public interface Geary.FolderSupport.Create : Geary.Folder {
     /**
-     * Creates a message in the folder.  If the message already exists in the {@link Geary.Folder},
-     * it will be merged (that is, fields in the message not already present will be added).
+     * Creates a message in the folder.
      *
      * The Folder must be opened prior to attempting this operation.
      */
-    public abstract async void create_email_async(Geary.RFC822.Message rfc822, EmailFlags? flags,
-        DateTime? date_received, Cancellable? cancellable = null) throws Error;
+    public abstract async Geary.EmailIdentifier create_email_async(Geary.RFC822.Message rfc822, EmailFlags? flags,
+        DateTime? date_received, Geary.EmailIdentifier? id = null, Cancellable? cancellable = null) throws Error;
 }
+

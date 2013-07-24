@@ -167,6 +167,10 @@ public class ComposerWindow : Gtk.Window {
     private bool is_attachment_overlay_visible = false;
     private Gee.List<Geary.Attachment>? pending_attachments = null;
     
+    private Geary.FolderSupport.Create? drafts_folder = null;
+    private Geary.EmailIdentifier? draft_id = null;
+    private Cancellable cancellable_drafts = new Cancellable();
+    
     private WebKit.WebView editor;
     // We need to keep a reference to the edit-fixer in composer-window, so it doesn't get
     // garbage-collected.
@@ -431,6 +435,8 @@ public class ComposerWindow : Gtk.Window {
         chain.append(attachments_box);
         chain.append(button_area);
         box.set_focus_chain(chain);
+        
+        open_drafts_folder.begin(cancellable_drafts); // Open drafts folder for initial account.
     }
     
     public ComposerWindow.from_mailto(Geary.Account account, string mailto) {
@@ -741,30 +747,53 @@ public class ComposerWindow : Gtk.Window {
     }
     
     // Returns the drafts folder for the current From account.
-    private Geary.FolderSupport.Create? get_drafts_folder() {
-        Geary.FolderSupport.Create? drafts_folder = null;
-        try {
-            drafts_folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS) as 
-                Geary.FolderSupport.Create;
-        } catch (Error e) {
-            debug("Error getting drafts folder: %s", e.message);
+    private async void open_drafts_folder(Cancellable cancellable) throws Error {
+        if (drafts_folder != null) {
+            // Close existing folder.
+            yield drafts_folder.close_async(cancellable);
+            drafts_folder = null;
+            draft_id = null;
         }
         
-        return drafts_folder;
+        Geary.FolderSupport.Create? folder = null;
+        folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS) as 
+            Geary.FolderSupport.Create;
+        
+        if (folder == null)
+            return; // No drafts folder.
+        
+        yield folder.open_async(Geary.Folder.OpenFlags.NONE, cancellable);
+        yield folder.wait_for_open_async(cancellable);
+        
+        // Only show Save button if we have a drafts folder to write to.
+        actions.get_action(ACTION_SAVE).visible = true;
+        
+        drafts_folder = folder;
     }
     
     // Save to the draft folder, if available.
     // Note that drafts are NOT "linkified."
     private void on_save() {
-        Geary.FolderSupport.Create? drafts_folder = get_drafts_folder();
+        save_async.begin();
+    }
+    
+    private async void save_async() {
         if (drafts_folder == null) {
             stdout.printf("No drafts folder available for this account.\n");
             
             return;
         }
         
-        drafts_folder.create_email_async.begin(new Geary.RFC822.Message.from_composed_email(
-            get_composed_email()), new Geary.EmailFlags(), null, null);
+        stdout.printf("Save starting\n");
+        try {
+            draft_id = yield drafts_folder.create_email_async(new Geary.RFC822.Message.from_composed_email(
+                get_composed_email()), new Geary.EmailFlags(), null, draft_id, null);
+        } catch (Error e) {
+            warning("Error saving draft: %s", e.message);
+            stdout.printf("err %s\n", e.message);
+        }
+        
+        stdout.printf("draft_id = %s\n", draft_id.to_string());
     }
     
     private void on_add_attachment_button_clicked() {
@@ -1500,6 +1529,8 @@ public class ComposerWindow : Gtk.Window {
         if (compose_type != ComposeType.NEW_MESSAGE)
             return;
         
+        actions.get_action(ACTION_SAVE).visible = false;
+        
         // Since we've set the combo box ID to the email addresses, we can
         // fetch that and use it to grab the account from the engine.
         string? id = from_multiple.get_active_id();
@@ -1512,14 +1543,13 @@ public class ComposerWindow : Gtk.Window {
                     account = Geary.Engine.instance.get_account_instance(new_account_info);
                     from = new_account_info.get_from().to_rfc822_string();
                     set_entry_completions();
+                    
+                    open_drafts_folder.begin(cancellable_drafts);
                 }
             } catch (Error e) {
                 debug("Error updating account in Composer: %s", e.message);
             }
         }
-        
-        // Only show Save button if we have a drafts folder to write to.
-        actions.get_action(ACTION_SAVE).visible = get_drafts_folder() != null;
     }
     
     private void set_entry_completions() {
