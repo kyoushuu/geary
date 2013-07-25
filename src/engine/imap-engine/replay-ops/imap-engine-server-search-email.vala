@@ -36,7 +36,7 @@ private class Geary.ImapEngine.ServerSearchEmail : Geary.ImapEngine.AbstractList
         Geary.EmailIdentifier? first_id = yield owner.local_folder.get_id_async(uids.first(),
             cancellable);
         if (first_id == null)
-            yield expand_vector_async(uids.first());
+            yield expand_vector_async(uids.first(), 1);
         
         // Convert UIDs into EmailIdentifiers for lookup
         Gee.HashSet<ImapDB.EmailIdentifier> local_ids = new Gee.HashSet<ImapDB.EmailIdentifier>();

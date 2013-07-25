@@ -462,7 +462,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
     
     private async Gee.List<Geary.Email>? list_email_in_chunks_async(Gee.List<LocationIdentifier> ids,
         Geary.Email.Field required_fields, ListFlags flags, Cancellable? cancellable) throws Error {
-        if (ids == null || ids.size == 0)
+        if (ids.size == 0)
             return null;
         
         int length_rounded_up = Numeric.int_round_up(ids.size, LIST_EMAIL_CHUNK_COUNT);
@@ -1035,7 +1035,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         
         // if found, merge, and associate if necessary
         if (location != null) {
-            do_merge_email(cx, location, email, out pre_fields, our post_fields,
+            do_merge_email(cx, location, email, out pre_fields, out post_fields,
                 out updated_contacts, ref unread_count_change, !associated, cancellable);
             
             // return false to indicate a merge
@@ -1564,7 +1564,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
     }
     
     private void do_merge_email(Db.Connection cx, LocationIdentifier location, Geary.Email email,
-        out Geary.Email.Field pre_fields, our Geary.Email.Field post_fields,
+        out Geary.Email.Field pre_fields, out Geary.Email.Field post_fields,
         out Gee.Collection<Contact> updated_contacts, ref int unread_count_change,
         bool associate_with_folder, Cancellable? cancellable) throws Error {
         int new_unread_count = 0;

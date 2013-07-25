@@ -186,7 +186,7 @@ private abstract class Geary.ImapEngine.AbstractListEmail : Geary.ImapEngine.Sen
     
     // Adds everything in the expansion to the unfulfilled set with required_fields plus ImapDB's
     // field requirements
-    protected async void expand_vector_async(Imap.UID? initial_uid) throws Error {
+    protected async void expand_vector_async(Imap.UID? initial_uid, int count) throws Error {
         // watch out for situations where the entire folder is represented locally (i.e. no
         // expansion necessary)
         int remote_count = owner.get_remote_counts(null, null);
@@ -205,7 +205,7 @@ private abstract class Geary.ImapEngine.AbstractListEmail : Geary.ImapEngine.Sen
         Imap.SequenceNumber? low_pos = null;
         Imap.SequenceNumber? high_pos = null;
         if (local_count > 0)
-            high_pos = new Imap.SequenceNumber(Numeric.int_floor(remote_count - count, 1));
+            high_pos = new Imap.SequenceNumber(Numeric.int_floor(remote_count - local_count, 1));
         
         if (flags.is_oldest_to_newest()) {
             if (initial_uid == null) {

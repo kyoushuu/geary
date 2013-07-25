@@ -11,7 +11,7 @@ private class Geary.ImapDB.EmailIdentifier : Geary.EmailIdentifier {
     public EmailIdentifier(int64 message_id, Imap.UID? uid) {
         assert(message_id != Db.INVALID_ROWID);
         
-        base (message_id, uid);
+        base (new Collection.Int64(message_id));
         
         this.message_id = message_id;
         this.uid = uid;
@@ -20,7 +20,7 @@ private class Geary.ImapDB.EmailIdentifier : Geary.EmailIdentifier {
     // Used when a new message comes off the wire and doesn't have a rowid associated with it (yet)
     // Requires a UID in order to find or create such an association
     public EmailIdentifier.no_message_id(Imap.UID uid) {
-        base (Db.INVALID_ROWID, uid);
+        base (uid);
         
         message_id = Db.INVALID_ROWID;
         this.uid = uid;

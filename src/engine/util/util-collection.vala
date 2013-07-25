@@ -6,6 +6,21 @@
 
 namespace Geary.Collection {
 
+/**
+ * An interface that represents an object that is Hashable and Comparable.
+ */
+
+public interface Unique<G> : BaseObject, Gee.Comparable<G>, Gee.Hashable<G> {
+    /**
+     * Returns a string representation of the unique object.
+     */
+    public abstract string to_string();
+}
+
+/**
+ * A Comparable, Hashable container for an int64.
+ */
+
 public class Int64 : BaseObject, Gee.Comparable<Int64>, Gee.Hashable<Int64> {
     public int64 value { get; private set; }
     

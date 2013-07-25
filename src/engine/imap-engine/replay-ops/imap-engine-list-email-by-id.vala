@@ -8,7 +8,7 @@ private class Geary.ImapEngine.ListEmailByID : Geary.ImapEngine.AbstractListEmai
     private ImapDB.EmailIdentifier? initial_id;
     private int count;
     private int fulfilled_count = 0;
-    private bool initial_id_found = false;
+    private Imap.UID? initial_uid = null;
     
     public ListEmailByID(GenericFolder owner, ImapDB.EmailIdentifier? initial_id, int count,
         Geary.Email.Field required_fields, Folder.ListFlags flags, Gee.List<Geary.Email>? accumulator,
@@ -34,7 +34,7 @@ private class Geary.ImapEngine.ListEmailByID : Geary.ImapEngine.AbstractListEmai
         if (list != null) {
             foreach (Geary.Email email in list) {
                 if (initial_id != null && email.id.equal_to(initial_id))
-                    initial_id_found = true;
+                    initial_uid = ((ImapDB.EmailIdentifier) email.id).uid;
                 
                 if (email.fields.fulfills(required_fields))
                     fulfilled.add(email);
@@ -45,7 +45,7 @@ private class Geary.ImapEngine.ListEmailByID : Geary.ImapEngine.AbstractListEmai
         
         // verify that the initial_id was found; if not, then want to get it from the remote
         // (this will force a vector expansion, if required)
-        if (initial_id != null && !initial_id_found)
+        if (initial_id != null && initial_uid == null)
             unfulfilled.set(required_fields | ImapDB.Folder.REQUIRED_FIELDS, initial_id);
         
         // report fulfilled items
@@ -101,7 +101,7 @@ private class Geary.ImapEngine.ListEmailByID : Geary.ImapEngine.AbstractListEmai
             if (flags.is_oldest_to_newest()) {
                 if (initial_id != null) {
                     // expand vector if not initial_id not discovered
-                    expansion_required = !initial_id_found;
+                    expansion_required = (initial_uid == null);
                 } else {
                     // initial_id == null, expansion required if not fully already
                     expansion_required = true;
@@ -114,7 +114,7 @@ private class Geary.ImapEngine.ListEmailByID : Geary.ImapEngine.AbstractListEmai
                 } else if (initial_id != null) {
                     // finite count, expansion required if initial not found *or* not enough
                     // items were pulled in
-                    expansion_required = !initial_id_found || (fulfilled_count + unfulfilled.size < count);
+                    expansion_required = (initial_uid == null) || (fulfilled_count + unfulfilled.size < count);
                 } else {
                     // initial_id == null
                     // finite count, expansion required if not enough found
@@ -124,9 +124,8 @@ private class Geary.ImapEngine.ListEmailByID : Geary.ImapEngine.AbstractListEmai
         }
         
         // If the vector is too short, expand it now
-        if (expansion_required) {
-            yield expand_vector_async();
-        }
+        if (expansion_required)
+            yield expand_vector_async(initial_uid, count);
         
         // Even after expansion it's possible for the local_list_count + unfulfilled to be less
         // than count if the folder has fewer messages or the user is requesting a span near

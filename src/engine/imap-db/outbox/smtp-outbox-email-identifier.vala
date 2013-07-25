@@ -5,12 +5,12 @@
  */
 
 private class Geary.SmtpOutboxEmailIdentifier : Geary.EmailIdentifier {
-    public int64 ordering { get; private set; }
+    public int64 ordering_id { get; private set; }
     
-    public SmtpOutboxEmailIdentifier(int64 message_id, int64 ordering) {
-        base (message_id, new Collection.Int64(ordering));
+    public SmtpOutboxEmailIdentifier(int64 message_id, int64 ordering_id) {
+        base (message_id, new Collection.Int64(ordering_id));
         
-        this.ordering = ordering;
+        this.ordering_id = ordering_id;
     }
 }
 

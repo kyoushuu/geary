@@ -776,22 +776,6 @@ private class Geary.ImapDB.Account : BaseObject {
         return email;
     }
     
-    public async Geary.EmailIdentifier? folder_email_id_to_search_async(
-        Geary.FolderPath folder_path, Geary.EmailIdentifier id,
-        Geary.FolderPath? return_folder_path, Cancellable? cancellable) throws Error {
-        int64? row_id = null;
-        yield db.exec_transaction_async(Db.TransactionType.RO, (cx, cancellable) => {
-            int64 folder_id;
-            do_fetch_folder_id(cx, folder_path, true, out folder_id, cancellable);
-            if (folder_id != Db.INVALID_ROWID)
-                row_id = do_get_message_row_id(cx, folder_id, id.ordering, cancellable);
-            
-            return Db.TransactionOutcome.DONE;
-        }, cancellable);
-        
-        return (row_id != null ? new Geary.ImapDB.EmailIdentifier(row_id, return_folder_path) : null);
-    }
-    
     public async void update_contact_flags_async(Geary.Contact contact, Cancellable? cancellable)
         throws Error{
         check_open();
@@ -975,7 +959,7 @@ private class Geary.ImapDB.Account : BaseObject {
         return do_fetch_folder_id(cx, path.get_parent(), create, out parent_id, cancellable);
     }
     
-    public int64? do_get_message_row_id(Db.Connection cx, int64 folder_id, int64 ordering,
+    private int64? do_get_message_row_id(Db.Connection cx, int64 folder_id, Imap.UID uid,
         Cancellable? cancellable) throws Error {
         Db.Statement stmt = cx.prepare("""
             SELECT message_id
@@ -984,7 +968,7 @@ private class Geary.ImapDB.Account : BaseObject {
                 AND ordering = ?
         """);
         stmt.bind_rowid(0, folder_id);
-        stmt.bind_int64(1, ordering);
+        stmt.bind_int64(1, uid.value);
         
         Db.Result result = stmt.exec(cancellable);
         int64? row_id = null;
