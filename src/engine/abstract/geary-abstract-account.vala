@@ -102,12 +102,12 @@ public abstract class Geary.AbstractAccount : BaseObject, Geary.Account {
         Geary.FolderPath folder_path, Geary.EmailIdentifier id,
         Geary.FolderPath? return_folder_path, Cancellable? cancellable = null) throws Error;
     
-    public abstract async Gee.Collection<Geary.EmailIdentifier>? local_search_async(string query,
+    public abstract async Gee.Collection<Geary.EmailIdentifier>? local_search_async(Geary.SearchQuery query,
         Geary.Email.Field requested_fields, bool partial_ok, Geary.FolderPath? email_id_folder_path,
         int limit = 100, int offset = 0, Gee.Collection<Geary.FolderPath?>? folder_blacklist = null,
         Gee.Collection<Geary.EmailIdentifier>? search_ids = null, Cancellable? cancellable = null) throws Error;
     
-    public abstract async Gee.Collection<string>? get_search_matches_async(
+    public abstract async Gee.Collection<string>? get_search_matches_async(Geary.SearchQuery query,
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error;
     
     public virtual string to_string() {

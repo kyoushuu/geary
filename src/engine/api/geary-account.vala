@@ -254,7 +254,7 @@ public interface Geary.Account : BaseObject {
         Geary.FolderPath? return_folder_path, Cancellable? cancellable = null) throws Error;
     
     /**
-     * Performs a search with the given query string.  Optionally, a list of folders not to search
+     * Performs a search with the given query.  Optionally, a list of folders not to search
      * can be passed as well as a list of email identifiers to restrict the search to only those messages.
      * Returns a list of email objects with the requested fields.  If partial_ok is false,  mail
      * will only be returned if it includes all requested fields.  The
@@ -264,16 +264,15 @@ public interface Geary.Account : BaseObject {
      * you can walk the table.  limit can be negative to mean "no limit" but
      * offset must not be negative.
      */
-    public abstract async Gee.Collection<Geary.Email>? local_search_async(string query,
+    public abstract async Gee.Collection<Geary.Email>? local_search_async(Geary.SearchQuery query,
         Geary.Email.Field requested_fields, bool partial_ok, Geary.FolderPath? email_id_folder_path,
         int limit = 100, int offset = 0, Gee.Collection<Geary.FolderPath?>? folder_blacklist = null,
         Gee.Collection<Geary.EmailIdentifier>? search_ids = null, Cancellable? cancellable = null) throws Error;
     
     /**
-     * Given a list of mail IDs, returns a list of words that match for the
-     * last run local_search_async() query.
+     * Given a list of mail IDs, returns a list of words that match for the query.
      */
-    public abstract async Gee.Collection<string>? get_search_matches_async(
+    public abstract async Gee.Collection<string>? get_search_matches_async(Geary.SearchQuery query,
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error;
     
     /**

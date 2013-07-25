@@ -55,7 +55,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder {
         Geary.SpecialFolderType.TRASH,
         // Orphan emails (without a folder) are also excluded; see ctor.
     };
-    private string? search_query = null;
+    private Geary.SearchQuery? search_query = null;
     private Gee.TreeSet<Geary.Email> search_results;
     private Geary.Nonblocking.Mutex result_mutex = new Geary.Nonblocking.Mutex();
     
@@ -107,7 +107,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder {
         return local_ids;
     }
     
-    private async void append_new_email_async(string query, Geary.Folder folder,
+    private async void append_new_email_async(Geary.SearchQuery query, Geary.Folder folder,
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable) throws Error {
         Gee.ArrayList<Geary.EmailIdentifier> local_ids = yield folder_ids_to_search_async(
             folder, ids, cancellable);
@@ -190,6 +190,8 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder {
     }
     
     private async void set_search_query_async(string query, Cancellable? cancellable = null) throws Error {
+        Geary.SearchQuery search_query = new Geary.SearchQuery(query);
+        
         int result_mutex_token = yield result_mutex.claim_async();
         Error? error = null;
         try {
@@ -198,7 +200,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder {
             // list_email_async() etc., but this leads to some more
             // complications when redoing the search.
             Gee.Collection<Geary.Email>? _new_results = yield account.local_search_async(
-                query, Geary.Email.Field.PROPERTIES, false, path, MAX_RESULT_EMAILS, 0,
+                search_query, Geary.Email.Field.PROPERTIES, false, path, MAX_RESULT_EMAILS, 0,
                 exclude_folders, null, cancellable);
             
             if (_new_results == null) {
@@ -259,8 +261,8 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder {
         
         result_mutex.release(ref result_mutex_token);
         
-        search_query = query;
-        search_query_changed(query);
+        this.search_query = search_query;
+        search_query_changed(search_query.query);
         
         if (error != null)
             throw error;
@@ -342,7 +344,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder {
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error {
         if (search_query == null)
             return null;
-        return yield account.get_search_matches_async(ids, cancellable);
+        return yield account.get_search_matches_async(search_query, ids, cancellable);
     }
     
     private void exclude_folder(Geary.Folder folder) {
