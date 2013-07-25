@@ -15,9 +15,18 @@
  */
 public interface Geary.FolderSupport.Create : Geary.Folder {
     /**
-     * Creates a message in the folder.
+     *  Creates (appends) the message to this folder.
      *
      * The Folder must be opened prior to attempting this operation.
+     *
+     * The optional {@link EmailFlags} allows for those flags to be set when saved.  Some Folders
+     * may ignore those flags (i.e. Outbox) if not applicable.
+     *
+     * The optional DateTime allows for the message's "date received" time to be set when saved.
+     * Like EmailFlags, this is optional if not applicable.
+     * 
+     * If an id is passed, this will replace the existing message by deleting it after the new
+     * message is created.  The new message's ID is retured.
      */
     public abstract async Geary.EmailIdentifier create_email_async(Geary.RFC822.Message rfc822, EmailFlags? flags,
         DateTime? date_received, Geary.EmailIdentifier? id = null, Cancellable? cancellable = null) throws Error;

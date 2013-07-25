@@ -170,6 +170,7 @@ public class ComposerWindow : Gtk.Window {
     private Geary.FolderSupport.Create? drafts_folder = null;
     private Geary.EmailIdentifier? draft_id = null;
     private Cancellable cancellable_drafts = new Cancellable();
+    private string default_save_label = "";
     
     private WebKit.WebView editor;
     // We need to keep a reference to the edit-fixer in composer-window, so it doesn't get
@@ -436,6 +437,8 @@ public class ComposerWindow : Gtk.Window {
         chain.append(button_area);
         box.set_focus_chain(chain);
         
+        actions.get_action(ACTION_SAVE).sensitive = false;
+        default_save_label = actions.get_action(ACTION_SAVE).label;
         open_drafts_folder.begin(cancellable_drafts); // Open drafts folder for initial account.
     }
     
@@ -755,18 +758,19 @@ public class ComposerWindow : Gtk.Window {
             draft_id = null;
         }
         
-        Geary.FolderSupport.Create? folder = null;
-        folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS) as 
-            Geary.FolderSupport.Create;
+        actions.get_action(ACTION_SAVE).sensitive = false;
+        
+        Geary.FolderSupport.Create? folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS) 
+            as Geary.FolderSupport.Create;
         
         if (folder == null)
             return; // No drafts folder.
         
-        yield folder.open_async(Geary.Folder.OpenFlags.NONE, cancellable);
+        yield folder.open_async(Geary.Folder.OpenFlags.FAST_OPEN, cancellable);
         yield folder.wait_for_open_async(cancellable);
         
         // Only show Save button if we have a drafts folder to write to.
-        actions.get_action(ACTION_SAVE).visible = true;
+        actions.get_action(ACTION_SAVE).sensitive = true;
         
         drafts_folder = folder;
     }
@@ -774,26 +778,30 @@ public class ComposerWindow : Gtk.Window {
     // Save to the draft folder, if available.
     // Note that drafts are NOT "linkified."
     private void on_save() {
-        save_async.begin();
+        save_async.begin(on_save_completed);
     }
     
     private async void save_async() {
         if (drafts_folder == null) {
-            stdout.printf("No drafts folder available for this account.\n");
-            
+            warning("No drafts folder available for this account.");
+             stdout.printf("no folder. :(\n");
             return;
         }
         
-        stdout.printf("Save starting\n");
+        actions.get_action(ACTION_SAVE).sensitive = false;
+        actions.get_action(ACTION_SAVE).set_label(_("Saving..."));
+        
         try {
             draft_id = yield drafts_folder.create_email_async(new Geary.RFC822.Message.from_composed_email(
                 get_composed_email()), new Geary.EmailFlags(), null, draft_id, null);
         } catch (Error e) {
             warning("Error saving draft: %s", e.message);
-            stdout.printf("err %s\n", e.message);
         }
-        
-        stdout.printf("draft_id = %s\n", draft_id.to_string());
+    }
+    
+    private void on_save_completed() {
+        actions.get_action(ACTION_SAVE).sensitive = true;
+        actions.get_action(ACTION_SAVE).set_label(default_save_label);
     }
     
     private void on_add_attachment_button_clicked() {
@@ -1529,7 +1537,7 @@ public class ComposerWindow : Gtk.Window {
         if (compose_type != ComposeType.NEW_MESSAGE)
             return;
         
-        actions.get_action(ACTION_SAVE).visible = false;
+        actions.get_action(ACTION_SAVE).sensitive = false;
         
         // Since we've set the combo box ID to the email addresses, we can
         // fetch that and use it to grab the account from the engine.
