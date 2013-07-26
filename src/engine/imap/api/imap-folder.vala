@@ -323,7 +323,7 @@ private class Geary.Imap.Folder : BaseObject {
         }
     }
     
-    // Returns a no-message-id ImapDB.EmailIdentifier with the UID stored as the ordering field.
+    // Returns a no-message-id ImapDB.EmailIdentifier with the UID stored in it.
     public async Gee.List<Geary.Email>? list_email_async(MessageSet msg_set, Geary.Email.Field fields,
         Cancellable? cancellable) throws Error {
         check_open();
