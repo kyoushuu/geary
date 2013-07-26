@@ -307,7 +307,7 @@ private class Geary.SmtpOutboxFolder : Geary.AbstractLocalFolder, Geary.FolderSu
                     "SELECT id, ordering, message FROM SmtpOutboxTable WHERE ordering >= ? "
                     + "ORDER BY ordering %s LIMIT ?".printf(dir));
                 stmt.bind_int64(0,
-                    flags.is_including_id() ? initial_id.ordering_id : initial_id.ordering_id + 1);
+                    flags.is_including_id() ? initial_id.ordering : initial_id.ordering + 1);
                 stmt.bind_int(1, count);
             } else {
                 stmt = cx.prepare(
@@ -352,7 +352,7 @@ private class Geary.SmtpOutboxFolder : Geary.AbstractLocalFolder, Geary.FolderSu
                 if (outbox_id == null)
                     throw new EngineError.BAD_PARAMETERS("%s is not outbox EmailIdentifier", id.to_string());
                 
-                OutboxRow? row = do_fetch_row_by_ordering(cx, outbox_id.ordering_id, cancellable);
+                OutboxRow? row = do_fetch_row_by_ordering(cx, outbox_id.ordering, cancellable);
                 if (row == null)
                     continue;
                 
@@ -381,7 +381,7 @@ private class Geary.SmtpOutboxFolder : Geary.AbstractLocalFolder, Geary.FolderSu
                     throw new EngineError.BAD_PARAMETERS("%s is not outbox EmailIdentifier", id.to_string());
                 
                 stmt.reset(Db.ResetScope.CLEAR_BINDINGS);
-                stmt.bind_int64(0, outbox_id.ordering_id);
+                stmt.bind_int64(0, outbox_id.ordering);
                 
                 // merely checking for presence, all emails in outbox have same fields
                 Db.Result results = stmt.exec(cancellable);
@@ -406,7 +406,7 @@ private class Geary.SmtpOutboxFolder : Geary.AbstractLocalFolder, Geary.FolderSu
         
         OutboxRow? row = null;
         yield db.exec_transaction_async(Db.TransactionType.RO, (cx) => {
-            row = do_fetch_row_by_ordering(cx, outbox_id.ordering_id, cancellable);
+            row = do_fetch_row_by_ordering(cx, outbox_id.ordering, cancellable);
             
             return Db.TransactionOutcome.DONE;
         }, cancellable);
@@ -557,7 +557,7 @@ private class Geary.SmtpOutboxFolder : Geary.AbstractLocalFolder, Geary.FolderSu
     private bool do_remove_email(Db.Connection cx, SmtpOutboxEmailIdentifier id, Cancellable? cancellable)
         throws Error {
         Db.Statement stmt = cx.prepare("DELETE FROM SmtpOutboxTable WHERE ordering=?");
-        stmt.bind_int64(0, id.ordering_id);
+        stmt.bind_int64(0, id.ordering);
         
         return stmt.exec_get_modified(cancellable) > 0;
     }

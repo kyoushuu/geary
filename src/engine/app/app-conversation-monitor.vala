@@ -462,13 +462,9 @@ public class Geary.App.ConversationMonitor : BaseObject {
             foreach (Geary.EmailIdentifier id in relevant_ids) {
                 // TODO: parallelize this.
                 try {
-                    Geary.EmailIdentifier? search_id = yield folder.account.folder_email_id_to_search_async(
-                        folder.path, id, null, cancellable);
-                    if (search_id != null) {
-                        Geary.Email email = yield folder.account.local_fetch_email_async(
-                            search_id, required_fields, cancellable);
-                        search_emails.add(email);
-                    }
+                    Geary.Email email = yield folder.account.local_fetch_email_async(id,
+                        required_fields, cancellable);
+                    search_emails.add(email);
                 } catch (Error e) {
                     debug("Error fetching out of folder message: %s", e.message);
                 }
@@ -707,7 +703,7 @@ public class Geary.App.ConversationMonitor : BaseObject {
         Geary.EmailIdentifier? earliest_id = null;
         foreach (Geary.Conversation conversation in conversations.conversations) {
             Geary.EmailIdentifier? id = conversation.get_lowest_email_id();
-            if (id != null && (earliest_id == null || id.compare_to(earliest_id) < 0))
+            if (id != null && (earliest_id == null || id.natural_sort_comparator(earliest_id) < 0))
                 earliest_id = id;
         }
         

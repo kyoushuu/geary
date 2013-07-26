@@ -610,7 +610,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
             
             Db.Result results = stmt.exec(cancellable);
             if (!results.finished)
-                id = new ImapDB.EmailIdentifier(results.rowid_at(0), new Imap.UID(results.int64_at(0)));
+                id = new ImapDB.EmailIdentifier(results.rowid_at(0), new Imap.UID(results.int64_at(1)));
             
             return Db.TransactionOutcome.DONE;
         }, cancellable);
@@ -1591,8 +1591,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
             return;
         
         // Build the combined email from the merge, which will be used to save the attachments
-        Geary.Email combined_email = row.to_email(
-            new ImapDB.EmailIdentifier(location.message_id, location.uid));
+        Geary.Email combined_email = row.to_email(location.email_id);
         do_add_attachments(cx, combined_email, location.message_id, cancellable);
         
         // Merge in any fields in the submitted email that aren't already in the database or are mutable

@@ -115,10 +115,7 @@ private class Geary.ImapEngine.EmailPrefetcher : Object {
                 break;
             
             // find lowest for next iteration
-            foreach (Geary.Email email in list) {
-                if (lowest == null || email.id.compare_to(lowest) < 0)
-                    lowest = email.id;
-            }
+            lowest = Geary.EmailIdentifier.sort_emails(list).first().id;
             
             schedule_prefetch(list);
         }

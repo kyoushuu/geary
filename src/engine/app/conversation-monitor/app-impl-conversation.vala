@@ -143,7 +143,7 @@ private class Geary.App.ImplConversation : Geary.Conversation {
     }
     
     private void check_lowest_id(EmailIdentifier id) {
-        if (id.folder_path != null && (lowest_id == null || id.compare_to(lowest_id) < 0))
+        if (id.folder_path != null && (lowest_id == null || id.natural_sort_comparator(lowest_id) < 0))
             lowest_id = id;
     }
     

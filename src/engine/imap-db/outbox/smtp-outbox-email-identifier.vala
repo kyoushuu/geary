@@ -5,12 +5,20 @@
  */
 
 private class Geary.SmtpOutboxEmailIdentifier : Geary.EmailIdentifier {
-    public int64 ordering_id { get; private set; }
+    public int64 ordering { get; private set; }
     
-    public SmtpOutboxEmailIdentifier(int64 message_id, int64 ordering_id) {
-        base (message_id, new Collection.Int64(ordering_id));
+    public SmtpOutboxEmailIdentifier(int64 message_id, int64 ordering) {
+        base (message_id);
         
-        this.ordering_id = ordering_id;
+        this.ordering = ordering;
+    }
+    
+    public override int natural_sort_comparator(Geary.EmailIdentifier o) {
+        SmtpOutboxEmailIdentifier? other = o as SmtpOutboxEmailIdentifier;
+        if (other == null)
+            return 1;
+        
+        return (int) (ordering - other.ordering).clamp(-1, 1);
     }
 }
 
