@@ -155,18 +155,6 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         }
     }
     
-    private int get_marked_removed_count_lte(Imap.UID uid) {
-        int count = 0;
-        lock (marked_removed) {
-            foreach (Imap.UID marked in marked_removed) {
-                if (marked.value <= uid.value)
-                    count++;
-            }
-        }
-        
-        return count;
-    }
-    
     public async int get_email_count_async(ListFlags flags, Cancellable? cancellable) throws Error {
         int count = 0;
         yield db.exec_transaction_async(Db.TransactionType.RO, (cx) => {
@@ -435,11 +423,11 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
             """);
             
             // create SQL-formatted list of message_ids
-            int ctr = 0;
-            foreach (ImapDB.EmailIdentifier id in ids) {
-                sql_ids.append("message_id = ?");
-                if (ctr++ > 0)
+            for (int ctr = 0; ctr < ids.size; ctr++) {
+                if (ctr > 0)
                     sql_ids.append(" OR ");
+                
+                sql_ids.append("message_id = ?");
             }
             sql_ids.append(")");
             
@@ -513,7 +501,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         return email;
     }
     
-    // pos is 1-based
+    // pos is 1-based.  This method does not respect messages marked for removal.
     public async ImapDB.EmailIdentifier? get_id_at_async(int pos, Cancellable? cancellable) throws Error {
         assert(pos >= 1);
         
@@ -550,6 +538,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
             if (location != null)
                 uid = location.uid;
             
+            return Db.TransactionOutcome.DONE;
         }, cancellable);
         
         return uid;
@@ -566,6 +555,8 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
                 if (location != null)
                     uids.add(location.uid);
             }
+            
+            return Db.TransactionOutcome.DONE;
         }, cancellable);
         
         return (uids.size > 0) ? uids : null;
@@ -668,7 +659,6 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
     public async void mark_email_async(Gee.Collection<ImapDB.EmailIdentifier> to_mark,
         Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove, Cancellable? cancellable)
         throws Error {
-        Error? error = null;
         int unread_change = 0; // Negative means messages are read, positive means unread.
         yield db.exec_transaction_async(Db.TransactionType.RW, (cx, cancellable) => {
             // fetch flags for each email
@@ -900,36 +890,6 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         int marked = !flags.include_marked_for_remove() ? get_marked_removed_count() : 0;
         
         return Numeric.int_floor(results.int_at(0) - marked, 0);
-    }
-    
-    // Returns -1 if not found
-    private int do_get_message_position(Db.Connection cx, LocationIdentifier location, ListFlags flags,
-        Cancellable? cancellable) throws Error {
-        if (!flags.include_marked_for_remove() && is_marked_removed(location.uid))
-            return -1;
-        
-        Db.Statement stmt = cx.prepare(
-            "SELECT COUNT(*), MAX(ordering) FROM MessageLocationTable WHERE folder_id=? "
-            + "AND ordering <= ? ORDER BY ordering ASC");
-        stmt.bind_rowid(0, folder_id);
-        stmt.bind_int64(1, location.uid.value);
-        
-        Db.Result results = stmt.exec(cancellable);
-        if (results.finished)
-            return -1;
-        
-        // without the MAX it's possible to overshoot, so the MAX(ordering) *must* match the argument
-        if (results.int64_at(1) != location.uid.value)
-            return -1;
-        
-        // the COUNT represents the 1-based number of rows from the first ordering to this one
-        if (!flags.include_marked_for_remove())
-            return results.int_at(0);
-        
-        // adjust position to include messages marked for removal before this one
-        int adjusted = results.int_at(0) - get_marked_removed_count_lte(location.uid);
-        
-        return (adjusted >= 1) ? adjusted : -1;
     }
     
     // Returns message_id if duplicate found, associated set to true if message is already associated

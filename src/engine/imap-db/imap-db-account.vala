@@ -959,25 +959,6 @@ private class Geary.ImapDB.Account : BaseObject {
         return do_fetch_folder_id(cx, path.get_parent(), create, out parent_id, cancellable);
     }
     
-    private int64? do_get_message_row_id(Db.Connection cx, int64 folder_id, Imap.UID uid,
-        Cancellable? cancellable) throws Error {
-        Db.Statement stmt = cx.prepare("""
-            SELECT message_id
-            FROM MessageLocationTable
-            WHERE folder_id = ?
-                AND ordering = ?
-        """);
-        stmt.bind_rowid(0, folder_id);
-        stmt.bind_int64(1, uid.value);
-        
-        Db.Result result = stmt.exec(cancellable);
-        int64? row_id = null;
-        if (!result.finished)
-            row_id = result.rowid_at(0);
-        
-        return row_id;
-    }
-    
     // Turn the collection of folder paths into actual folder ids.  As a
     // special case, if "folderless" or orphan emails are to be blacklisted,
     // set the out bool to true.

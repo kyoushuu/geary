@@ -39,16 +39,8 @@ private class Geary.App.ImplConversation : Geary.Conversation {
         owner = null;
     }
     
-    public override int get_count(bool folder_email_ids_only = false) {
-        if (!folder_email_ids_only)
-            return emails.size;
-        
-        int folder_count = 0;
-        foreach (Geary.EmailIdentifier id in emails.keys) {
-            if (id.folder_path != null)
-                ++folder_count;
-        }
-        return folder_count;
+    public override int get_count() {
+        return emails.size;
     }
     
     public override Gee.List<Geary.Email> get_emails(Conversation.Ordering ordering) {
@@ -76,17 +68,8 @@ private class Geary.App.ImplConversation : Geary.Conversation {
         return emails.get(id);
     }
     
-    public override Gee.Collection<Geary.EmailIdentifier> get_email_ids(
-        bool folder_email_ids_only = false) {
-        if (!folder_email_ids_only)
-            return emails.keys;
-        
-        Gee.ArrayList<Geary.EmailIdentifier> folder_ids = new Gee.ArrayList<Geary.EmailIdentifier>();
-        foreach (Geary.EmailIdentifier id in emails.keys) {
-            if (id.folder_path != null)
-                folder_ids.add(id);
-        }
-        return folder_ids;
+    public override Gee.Collection<Geary.EmailIdentifier> get_email_ids() {
+        return emails.keys;
     }
     
     public override Geary.EmailIdentifier? get_lowest_email_id() {
@@ -143,7 +126,7 @@ private class Geary.App.ImplConversation : Geary.Conversation {
     }
     
     private void check_lowest_id(EmailIdentifier id) {
-        if (id.folder_path != null && (lowest_id == null || id.natural_sort_comparator(lowest_id) < 0))
+        if (lowest_id == null || id.natural_sort_comparator(lowest_id) < 0)
             lowest_id = id;
     }
     

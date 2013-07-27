@@ -30,14 +30,8 @@ private class Geary.App.ConversationSet : BaseObject {
     public ConversationSet() {
     }
     
-    public int get_email_count(bool folder_email_ids_only = false) {
-        if (!folder_email_ids_only)
-            return email_id_map.size;
-        
-        int count = 0;
-        foreach (ImplConversation conversation in _conversations)
-            count += conversation.get_count(folder_email_ids_only);
-        return count;
+    public int get_email_count() {
+        return email_id_map.size;
     }
     
     public bool contains(Geary.Conversation conversation) {
@@ -102,34 +96,6 @@ private class Geary.App.ConversationSet : BaseObject {
         }
     }
     
-    private bool remove_duplicate_email_by_message_id(ImplConversation conversation,
-        Geary.Email email, Geary.FolderPath? preferred_folder_path) {
-        Email? existing = null;
-        foreach (Geary.Email other in conversation.get_emails(Geary.Conversation.Ordering.NONE)) {
-            if (other.message_id != null && email.message_id.equal_to(other.message_id)) {
-                existing = other;
-                break;
-            }
-        }
-        if (existing == null) {
-            error("Email with Message-ID %s not found in conversation %s",
-                email.message_id.to_string(), conversation.to_string());
-        }
-        
-        bool basic_upgrade = (existing.id.folder_path == null && email.id.folder_path != null);
-        bool preferred_folder_upgrade = (preferred_folder_path != null &&
-            email.id.folder_path != null &&
-            existing.id.folder_path != null &&
-            preferred_folder_path.equal_to(email.id.folder_path) &&
-            !preferred_folder_path.equal_to(existing.id.folder_path));
-        if (basic_upgrade || preferred_folder_upgrade) {
-            remove_email_from_conversation(conversation, existing);
-            return true;
-        }
-        
-        return false;
-    }
-    
     /**
      * Add the email (requires Field.REFERENCES) to the mix, potentially
      * replacing an existing email with the same id, or creating a new
@@ -157,10 +123,8 @@ private class Geary.App.ConversationSet : BaseObject {
             // through "full conversations".  They won't have the same
             // EmailIdentifier, but (we assume) they're the same message
             // otherwise.
-            if (conversation != null &&
-                !remove_duplicate_email_by_message_id(conversation, email, preferred_folder_path)) {
+            if (conversation != null)
                 return null;
-            }
         }
         
         Gee.Set<Geary.RFC822.MessageID>? ancestors = email.get_ancestors();
@@ -246,7 +210,8 @@ private class Geary.App.ConversationSet : BaseObject {
         remove_email_from_conversation(conversation, email);
         
         // Evaporate conversations with no more messages in the folder.
-        if (conversation.get_count(true) == 0) {
+        // TODO: Need to determine this properly
+        if (conversation.get_count() == 0) {
             foreach (Geary.Email conversation_email in conversation.get_emails(Geary.Conversation.Ordering.NONE))
                 remove_email_from_conversation(conversation, conversation_email);
             

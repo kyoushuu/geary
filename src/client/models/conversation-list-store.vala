@@ -114,7 +114,7 @@ public class ConversationListStore : Gtk.ListStore {
             if (conversation_lowest == null)
                 continue;
             
-            if (lowest_id == null || conversation_lowest.compare_to(lowest_id) < 0)
+            if (lowest_id == null || conversation_lowest.natural_sort_comparator(lowest_id) < 0)
                 lowest_id = conversation_lowest;
         } while (iter_next(ref iter));
         
@@ -169,17 +169,11 @@ public class ConversationListStore : Gtk.ListStore {
         if (current_folder == null || !GearyApplication.instance.config.display_preview)
             return;
         
-        Gee.Collection<Geary.EmailIdentifier> folder_emails_needing_previews;
-        Gee.Collection<Geary.EmailIdentifier> account_emails_needing_previews;
-        get_emails_needing_previews(out folder_emails_needing_previews, out account_emails_needing_previews);
+        Gee.Set<Geary.EmailIdentifier> needing_previews = get_emails_needing_previews();
         
         Gee.ArrayList<Geary.Email> emails = new Gee.ArrayList<Geary.Email>();
-        if (folder_emails_needing_previews.size > 0)
-            emails.add_all(yield do_get_folder_previews_async(conversation_monitor,
-                folder_emails_needing_previews));
-        if (account_emails_needing_previews.size > 0)
-            emails.add_all(yield do_get_account_previews_async(conversation_monitor,
-                account_emails_needing_previews));
+        if (needing_previews.size > 0)
+            emails.add_all(yield do_get_previews_async(conversation_monitor, needing_previews));
         if (emails.size < 1)
             return;
         
@@ -234,16 +228,14 @@ public class ConversationListStore : Gtk.ListStore {
         return emails;
     }
     
-    private void get_emails_needing_previews(out Gee.Collection<Geary.EmailIdentifier> folder_emails,
-        out Gee.Collection<Geary.EmailIdentifier> account_emails) {
+    private Gee.Set<Geary.EmailIdentifier> get_emails_needing_previews() {
+        Gee.Set<Geary.EmailIdentifier> needing = new Gee.HashSet<Geary.EmailIdentifier>();
+        
         // sort the conversations so the previews are fetched from the newest to the oldest, matching
         // the user experience
         Gee.TreeSet<Geary.Conversation> sorted_conversations = new Geary.Collection.FixedTreeSet<Geary.Conversation>(
             compare_conversation_descending);
         sorted_conversations.add_all(conversation_monitor.get_conversations());
-        
-        folder_emails = new Gee.HashSet<Geary.EmailIdentifier>();
-        account_emails = new Gee.HashSet<Geary.EmailIdentifier>();
         foreach (Geary.Conversation conversation in sorted_conversations) {
             Geary.Email? need_preview = conversation.get_latest_email();
             if (need_preview == null)
@@ -258,11 +250,10 @@ public class ConversationListStore : Gtk.ListStore {
                 continue;
             }
             
-            if (need_preview.id.folder_path == null)
-                account_emails.add(need_preview.id);
-            else
-                folder_emails.add(need_preview.id);
+            needing.add(need_preview.id);
         }
+        
+        return needing;
     }
     
     private Geary.Email? get_preview_for_conversation(Geary.Conversation conversation) {

@@ -32,7 +32,7 @@ public abstract class Geary.Conversation : BaseObject {
     /**
      * Returns the number of emails in the conversation.
      */
-    public abstract int get_count(bool folder_email_ids_only = false);
+    public abstract int get_count();
     
     /**
      * Returns all the email in the conversation sorted according to the specifier.
@@ -53,8 +53,7 @@ public abstract class Geary.Conversation : BaseObject {
      * Returns all EmailIdentifiers in the conversation (or optionally only
      * folder email ids, ignoring account email ids), unsorted.
      */
-    public abstract Gee.Collection<Geary.EmailIdentifier> get_email_ids(
-        bool folder_email_ids_only = false);
+    public abstract Gee.Collection<Geary.EmailIdentifier> get_email_ids();
     
     /**
      * Returns true if *any* message in the conversation is unread.
@@ -120,29 +119,23 @@ public abstract class Geary.Conversation : BaseObject {
     /**
      * Returns the earliest (first sent) email in the Conversation.
      */
-    public Geary.Email? get_earliest_email(bool folder_email_ids_only = false) {
-        return get_single_email(Geary.Conversation.Ordering.DATE_ASCENDING, folder_email_ids_only);
+    public Geary.Email? get_earliest_email() {
+        return get_single_email(Geary.Conversation.Ordering.DATE_ASCENDING);
    }
     
     /**
      * Returns the latest (most recently sent) email in the Conversation.
      */
-    public Geary.Email? get_latest_email(bool folder_email_ids_only = false) {
-        return get_single_email(Geary.Conversation.Ordering.DATE_DESCENDING, folder_email_ids_only);
+    public Geary.Email? get_latest_email() {
+        return get_single_email(Geary.Conversation.Ordering.DATE_DESCENDING);
     }
     
-    private Geary.Email? get_single_email(Geary.Conversation.Ordering ordering,
-        bool folder_email_ids_only) {
-        foreach (Geary.Email email in get_emails(ordering)) {
-            if (!folder_email_ids_only || email.id.folder_path != null)
-                return email;
-        }
-        return null;
+    private Geary.Email? get_single_email(Geary.Conversation.Ordering ordering) {
+        return get_emails(ordering).first();
     }
     
     /**
-     * Return the EmailIdentifier with the lowest value.  Ignore Geary.ImapDB.
-     * EmailIdentifiers, because they aren't useful to order in this sense.
+     * Return the EmailIdentifier with the lowest natural sort order.
      */
     public abstract Geary.EmailIdentifier? get_lowest_email_id();
     
