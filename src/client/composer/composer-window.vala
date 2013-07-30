@@ -767,7 +767,6 @@ public class ComposerWindow : Gtk.Window {
             return; // No drafts folder.
         
         yield folder.open_async(Geary.Folder.OpenFlags.FAST_OPEN, cancellable);
-        yield folder.wait_for_open_async(cancellable);
         
         // Only show Save button if we have a drafts folder to write to.
         actions.get_action(ACTION_SAVE).sensitive = true;
@@ -784,7 +783,7 @@ public class ComposerWindow : Gtk.Window {
     private async void save_async() {
         if (drafts_folder == null) {
             warning("No drafts folder available for this account.");
-             stdout.printf("no folder. :(\n");
+            
             return;
         }
         

@@ -261,12 +261,11 @@ private class Geary.Imap.Folder : BaseObject {
     }
     
     // All commands must executed inside the cmd_mutex; returns FETCH or STORE results
-    private async void exec_commands_async(Gee.Collection<Command> cmds,
+    private async Gee.Map<Command, StatusResponse>? exec_commands_async(Gee.Collection<Command> cmds,
         out Gee.HashMap<SequenceNumber, FetchedData>? fetched,
-        out Gee.TreeSet<Imap.UID>? search_results, 
-        out Gee.Map<Command, StatusResponse>? responses, Cancellable? cancellable) throws Error {
+        out Gee.TreeSet<Imap.UID>? search_results, Cancellable? cancellable) throws Error {
         int token = yield cmd_mutex.claim_async(cancellable);
-        responses = null;
+        Gee.Map<Command, StatusResponse>? responses = null;
         // execute commands with mutex locked
         Error? err = null;
         try {
@@ -300,6 +299,8 @@ private class Geary.Imap.Folder : BaseObject {
         assert(responses != null);
         foreach (Command cmd in responses.keys)
             throw_on_failed_status(responses.get(cmd), cmd);
+        
+        return responses;
     }
     
     private void throw_on_failed_status(StatusResponse response, Command cmd) throws Error {
@@ -409,7 +410,7 @@ private class Geary.Imap.Folder : BaseObject {
         
         // Commands prepped, do the fetch and accumulate all the responses
         Gee.HashMap<SequenceNumber, FetchedData>? fetched;
-        yield exec_commands_async(cmds, out fetched, null, null, cancellable);
+        yield exec_commands_async(cmds, out fetched, null, cancellable);
         if (fetched == null || fetched.size == 0)
             return null;
         
@@ -460,7 +461,7 @@ private class Geary.Imap.Folder : BaseObject {
         cmds.add(new FetchCommand.data_type(msg_set, FetchDataType.UID));
         
         Gee.HashMap<SequenceNumber, FetchedData>? fetched;
-        yield exec_commands_async(cmds, out fetched, null, null, cancellable);
+        yield exec_commands_async(cmds, out fetched, null, cancellable);
         
         if (fetched == null || fetched.size == 0)
             return null;
@@ -488,7 +489,7 @@ private class Geary.Imap.Folder : BaseObject {
         else
             cmds.add(new ExpungeCommand());
         
-        yield exec_commands_async(cmds, null, null, null, cancellable);
+        yield exec_commands_async(cmds, null, null, cancellable);
     }
     
     public async void mark_email_async(MessageSet msg_set, Geary.EmailFlags? flags_to_add,
@@ -511,7 +512,7 @@ private class Geary.Imap.Folder : BaseObject {
         if (msg_flags_remove.size > 0)
             cmds.add(new StoreCommand(msg_set, msg_flags_remove, false, false));
         
-        yield exec_commands_async(cmds, null, null, null, cancellable);
+        yield exec_commands_async(cmds, null, null, cancellable);
     }
     
     public async void copy_email_async(MessageSet msg_set, Geary.FolderPath destination,
@@ -522,7 +523,7 @@ private class Geary.Imap.Folder : BaseObject {
             new MailboxSpecifier.from_folder_path(destination, null));
         Gee.Collection<Command> cmds = new Collection.SingleItem<Command>(cmd);
         
-        yield exec_commands_async(cmds, null, null, null, cancellable);
+        yield exec_commands_async(cmds, null, null,  cancellable);
     }
     
     // TODO: Support MOVE extension
@@ -546,7 +547,7 @@ private class Geary.Imap.Folder : BaseObject {
         else
             cmds.add(new ExpungeCommand());
         
-        yield exec_commands_async(cmds, null, null, null, cancellable);
+        yield exec_commands_async(cmds, null, null, cancellable);
     }
     
     public async Gee.SortedSet<Imap.UID>? search_async(SearchCriteria criteria, Cancellable? cancellable)
@@ -558,7 +559,7 @@ private class Geary.Imap.Folder : BaseObject {
         cmds.add(new SearchCommand(criteria, true));
         
         Gee.TreeSet<Imap.UID>? search_results;
-        yield exec_commands_async(cmds, null, out search_results, null, cancellable);
+        yield exec_commands_async(cmds, null, out search_results, cancellable);
         
         return (search_results != null && search_results.size > 0) ? search_results : null;
     }
@@ -835,7 +836,7 @@ private class Geary.Imap.Folder : BaseObject {
         return email;
     }
     
-    internal async Geary.EmailIdentifier create_email_async(RFC822.Message message, Geary.EmailFlags? flags,
+    internal async Geary.EmailIdentifier? create_email_async(RFC822.Message message, Geary.EmailFlags? flags,
         DateTime? date_received, Cancellable? cancellable) throws Error {
         check_open();
         
@@ -852,8 +853,8 @@ private class Geary.Imap.Folder : BaseObject {
         AppendCommand cmd = new AppendCommand(new MailboxSpecifier.from_folder_path(path, null),
             msg_flags, internaldate, message.get_network_buffer(false));
         
-        Gee.Map<Command, StatusResponse> responses;
-        yield exec_commands_async(new Collection.SingleItem<AppendCommand>(cmd), null, null, out responses, cancellable);
+        Gee.Map<Command, StatusResponse> responses = yield exec_commands_async(
+            new Collection.SingleItem<AppendCommand>(cmd), null, null, cancellable);
         
         // Grab the response and parse out the UID, if available.
         StatusResponse response = responses.get(cmd);
@@ -867,7 +868,8 @@ private class Geary.Imap.Folder : BaseObject {
             }
         }
         
-        throw new ImapError.SERVER_ERROR("Unexpected APPEND result %s: %s", path.to_string(), response.to_string());
+        // We didn't get a UID back from the server.
+        return null;
     }
     
     private bool required_but_not_set(Geary.Email.Field check, Geary.Email.Field users_fields, Geary.Email email) {

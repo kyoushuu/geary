@@ -26,9 +26,9 @@ public interface Geary.FolderSupport.Create : Geary.Folder {
      * Like EmailFlags, this is optional if not applicable.
      * 
      * If an id is passed, this will replace the existing message by deleting it after the new
-     * message is created.  The new message's ID is retured.
+     * message is created.  The new message's ID is returned.
      */
-    public abstract async Geary.EmailIdentifier create_email_async(Geary.RFC822.Message rfc822, EmailFlags? flags,
+    public abstract async Geary.EmailIdentifier? create_email_async(Geary.RFC822.Message rfc822, EmailFlags? flags,
         DateTime? date_received, Geary.EmailIdentifier? id = null, Cancellable? cancellable = null) throws Error;
 }
 

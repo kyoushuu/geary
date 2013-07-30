@@ -20,7 +20,7 @@ private class Geary.ImapEngine.GenericDraftsFolder : GenericFolder, Geary.Folder
         yield expunge_email_async(email_ids, cancellable);
     }
     
-    public new async Geary.EmailIdentifier create_email_async(RFC822.Message message, Geary.EmailFlags? flags,
+    public new async Geary.EmailIdentifier? create_email_async(RFC822.Message message, Geary.EmailFlags? flags,
         DateTime? date_received, Geary.EmailIdentifier? id, Cancellable? cancellable) throws Error {
         return yield base.create_email_async(message, flags, date_received, id, cancellable);
     }
