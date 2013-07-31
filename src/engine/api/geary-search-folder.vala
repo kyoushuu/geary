@@ -94,30 +94,14 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder {
         }
     }
     
-    private async Gee.ArrayList<Geary.EmailIdentifier> folder_ids_to_search_async(Geary.Folder folder,
-        Gee.Collection<Geary.EmailIdentifier> folder_ids, Cancellable? cancellable) throws Error {
-        Gee.ArrayList<Geary.EmailIdentifier> local_ids = new Gee.ArrayList<Geary.EmailIdentifier>();
-        foreach (Geary.EmailIdentifier folder_id in folder_ids) {
-            // TODO: parallelize.
-            Geary.EmailIdentifier? local_id = yield account.folder_email_id_to_search_async(
-                folder.path, folder_id, path, cancellable);
-            if (local_id != null)
-                local_ids.add(local_id);
-        }
-        return local_ids;
-    }
-    
     private async void append_new_email_async(string query, Geary.Folder folder,
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable) throws Error {
-        Gee.ArrayList<Geary.EmailIdentifier> local_ids = yield folder_ids_to_search_async(
-            folder, ids, cancellable);
-        
         int result_mutex_token = yield result_mutex.claim_async();
         Error? error = null;
         try {
             Gee.Collection<Geary.Email>? results = yield account.local_search_async(
                 query, Geary.Email.Field.PROPERTIES, false, path, MAX_RESULT_EMAILS, 0,
-                exclude_folders, local_ids, cancellable);
+                exclude_folders, ids, cancellable);
             
             if (results != null) {
                 Gee.HashMap<Geary.EmailIdentifier, Geary.Email> to_add

@@ -98,10 +98,6 @@ public abstract class Geary.AbstractAccount : BaseObject, Geary.Account {
     public abstract async Geary.Email local_fetch_email_async(Geary.EmailIdentifier email_id,
         Geary.Email.Field required_fields, Cancellable? cancellable = null) throws Error;
     
-    public abstract async Geary.EmailIdentifier? folder_email_id_to_search_async(
-        Geary.FolderPath folder_path, Geary.EmailIdentifier id,
-        Geary.FolderPath? return_folder_path, Cancellable? cancellable = null) throws Error;
-    
     public abstract async Gee.Collection<Geary.EmailIdentifier>? local_search_async(string query,
         Geary.Email.Field requested_fields, bool partial_ok, Geary.FolderPath? email_id_folder_path,
         int limit = 100, int offset = 0, Gee.Collection<Geary.FolderPath?>? folder_blacklist = null,
@@ -109,6 +105,10 @@ public abstract class Geary.AbstractAccount : BaseObject, Geary.Account {
     
     public abstract async Gee.Collection<string>? get_search_matches_async(
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error;
+    
+    public abstract async void mark_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
+        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove,
+        Cancellable? cancellable = null) throws Error;
     
     public virtual string to_string() {
         return name;

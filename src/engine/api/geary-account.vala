@@ -245,15 +245,6 @@ public interface Geary.Account : BaseObject {
         Geary.Email.Field required_fields, Cancellable? cancellable = null) throws Error;
     
     /**
-     * Return the given EmailIdentifier as a "search" EmailIdentifier that can
-     * be used in local_fetch_email_async().  Return null if the email id isn't
-     * in the local database.
-     */
-    public abstract async Geary.EmailIdentifier? folder_email_id_to_search_async(
-        Geary.FolderPath folder_path, Geary.EmailIdentifier id,
-        Geary.FolderPath? return_folder_path, Cancellable? cancellable = null) throws Error;
-    
-    /**
      * Performs a search with the given query string.  Optionally, a list of folders not to search
      * can be passed as well as a list of email identifiers to restrict the search to only those messages.
      * Returns a list of email objects with the requested fields.  If partial_ok is false,  mail
@@ -275,6 +266,14 @@ public interface Geary.Account : BaseObject {
      */
     public abstract async Gee.Collection<string>? get_search_matches_async(
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error;
+    
+    /**
+     * Marks any set of EmailIdentifiers as if they were all in one
+     * Geary.FolderSupport.Mark folder.
+     */
+    public abstract async void mark_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
+        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove,
+        Cancellable? cancellable = null) throws Error;
     
     /**
      * Used only for debugging.  Should not be used for user-visible strings.

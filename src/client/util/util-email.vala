@@ -4,9 +4,9 @@
  * (version 2.1 or later).  See the COPYING file in this distribution.
  */
 
-public int compare_conversation_ascending(Geary.Conversation a, Geary.Conversation b) {
-    Gee.List<Geary.Email> apool = a.get_emails(Geary.Conversation.Ordering.DATE_ASCENDING);
-    Gee.List<Geary.Email> bpool = b.get_emails(Geary.Conversation.Ordering.DATE_ASCENDING);
+public int compare_conversation_ascending(Geary.App.Conversation a, Geary.App.Conversation b) {
+    Gee.List<Geary.Email> apool = a.get_emails(Geary.App.Conversation.Ordering.DATE_ASCENDING);
+    Gee.List<Geary.Email> bpool = b.get_emails(Geary.App.Conversation.Ordering.DATE_ASCENDING);
     
     if (apool.size == 0)
         return (bpool.size > 0) ? -1 : 0;
@@ -16,7 +16,7 @@ public int compare_conversation_ascending(Geary.Conversation a, Geary.Conversati
     return Geary.Email.compare_date_ascending(apool.last(), bpool.last());
 }
 
-public int compare_conversation_descending(Geary.Conversation a, Geary.Conversation b) {
+public int compare_conversation_descending(Geary.App.Conversation a, Geary.App.Conversation b) {
     return compare_conversation_ascending(b, a);
 }
 

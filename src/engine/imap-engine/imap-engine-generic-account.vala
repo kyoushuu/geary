@@ -5,6 +5,37 @@
  */
 
 private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
+    private abstract class AsyncFolderOperation : BaseObject {
+        public abstract async Gee.Collection<Geary.EmailIdentifier> exec_async(
+            Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
+            Cancellable? cancellable) throws Error;
+    }
+    
+    private class MarkOperation : AsyncFolderOperation {
+        public static Type folder_type = typeof(Geary.FolderSupport.Mark);
+        
+        public Geary.EmailFlags? flags_to_add;
+        public Geary.EmailFlags? flags_to_remove;
+        
+        public MarkOperation(Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove) {
+            this.flags_to_add = flags_to_add;
+            this.flags_to_remove = flags_to_remove;
+        }
+        
+        public override async Gee.Collection<Geary.EmailIdentifier> exec_async(
+            Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
+            Cancellable? cancellable) throws Error {
+            Geary.FolderSupport.Mark? mark = folder as Geary.FolderSupport.Mark;
+            assert(mark != null);
+            
+            Gee.List<Geary.EmailIdentifier> list
+                = Geary.Collection.to_array_list<Geary.EmailIdentifier>(ids);
+            // FIXME: get folder-specific ids.  This won't work.
+            yield mark.mark_email_async(list, flags_to_add, flags_to_remove, cancellable);
+            return ids;
+        }
+    }
+    
     private const int REFRESH_FOLDER_LIST_SEC = 10 * 60;
     
     private static Geary.FolderPath? outbox_path = null;
@@ -501,6 +532,24 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
         notify_email_sent(rfc822);
     }
     
+    private ImapDB.EmailIdentifier check_id(Geary.EmailIdentifier id) throws EngineError {
+        ImapDB.EmailIdentifier? imapdb_id = id as ImapDB.EmailIdentifier;
+        if (imapdb_id == null)
+            throw new EngineError.BAD_PARAMETERS("EmailIdentifier %s not from ImapDB folder", id.to_string());
+        
+        return imapdb_id;
+    }
+    
+    private Gee.Collection<ImapDB.EmailIdentifier> check_ids(Gee.Collection<Geary.EmailIdentifier> ids)
+        throws EngineError {
+        foreach (Geary.EmailIdentifier id in ids) {
+            if (!(id is ImapDB.EmailIdentifier))
+                throw new EngineError.BAD_PARAMETERS("EmailIdentifier %s not from ImapDB folder", id.to_string());
+        }
+        
+        return (Gee.Collection<ImapDB.EmailIdentifier>) ids;
+    }
+    
     public override async Gee.MultiMap<Geary.Email, Geary.FolderPath?>? local_search_message_id_async(
         Geary.RFC822.MessageID message_id, Geary.Email.Field requested_fields, bool partial_ok,
         Gee.Collection<Geary.FolderPath?>? folder_blacklist, Cancellable? cancellable = null) throws Error {
@@ -510,14 +559,7 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
     
     public override async Geary.Email local_fetch_email_async(Geary.EmailIdentifier email_id,
         Geary.Email.Field required_fields, Cancellable? cancellable = null) throws Error {
-        return yield local.fetch_email_async(email_id, required_fields, cancellable);
-    }
-    
-    public override async Geary.EmailIdentifier? folder_email_id_to_search_async(
-        Geary.FolderPath folder_path, Geary.EmailIdentifier id,
-        Geary.FolderPath? return_folder_path, Cancellable? cancellable = null) throws Error {
-        return yield local.folder_email_id_to_search_async(
-            folder_path, id, return_folder_path, cancellable);
+        return yield local.fetch_email_async(check_id(email_id), required_fields, cancellable);
     }
     
     public override async Gee.Collection<Geary.Email>? local_search_async(string query,
@@ -536,7 +578,107 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
     
     public override async Gee.Collection<string>? get_search_matches_async(
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error {
-        return yield local.get_search_matches_async(previous_prepared_search_query, ids, cancellable);
+        return yield local.get_search_matches_async(previous_prepared_search_query, check_ids(ids),
+            cancellable);
+    }
+    
+    private async Gee.HashMap<Geary.FolderPath, Geary.Folder> get_folder_instances_async(
+        Gee.Collection<Geary.FolderPath> paths, Cancellable? cancellable) throws Error {
+        Gee.HashMap<Geary.FolderPath, Geary.Folder> folders
+            = new Gee.HashMap<Geary.FolderPath, Geary.Folder>();
+        foreach (Geary.FolderPath path in paths) {
+            // TODO: can this be done away with?
+            Geary.Folder folder = yield fetch_folder_async(path, cancellable);
+            folders.set(path, folder);
+        }
+        return folders;
+    }
+    
+    private Geary.FolderPath? next_folder_for_operation(Type folder_type,
+        Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids,
+        Gee.Map<Geary.FolderPath, Geary.Folder> folders) throws Error {
+        bool best_is_open = false;
+        int best_count = 0;
+        Geary.FolderPath? best = null;
+        foreach (Geary.FolderPath path in folders_to_ids.get_keys()) {
+            assert(folders.has_key(path));
+            if (!folders.get(path).get_type().is_a(folder_type))
+                continue;
+            
+            // TODO: support REMOTE- or LOCAL-only here?
+            if (folders.get(path).get_open_state() == Geary.Folder.OpenState.BOTH) {
+                if (!best_is_open) {
+                    best_is_open = true;
+                    best_count = 0;
+                }
+            } else if (best_is_open) {
+                continue;
+            }
+            
+            int count = folders_to_ids.get(path).size;
+            if (count > best_count) {
+                best_count = count;
+                best = path;
+            }
+        }
+        
+        return best;
+    }
+    
+    private async void do_folder_operation_async(AsyncFolderOperation operation, Type folder_type,
+        Gee.Collection<Geary.EmailIdentifier> emails, Cancellable? cancellable) throws Error {
+        Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? ids_to_folders
+            = yield local.get_containing_folders_async(emails, cancellable);
+        Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids
+            = Geary.Collection.reverse_multi_map<Geary.EmailIdentifier, Geary.FolderPath>(ids_to_folders);
+        Gee.HashMap<Geary.FolderPath, Geary.Folder> folders
+            = yield get_folder_instances_async(folders_to_ids.get_keys(), cancellable);
+        
+        Geary.FolderPath? path;
+        while ((path = next_folder_for_operation(folder_type, folders_to_ids, folders)) != null) {
+            Geary.Folder folder = folders.get(path);
+            Gee.Collection<Geary.EmailIdentifier> ids = folders_to_ids.get(path);
+            assert(ids.size > 0);
+            
+            bool open = false;
+            try {
+                yield folder.open_async(Geary.Folder.OpenFlags.NONE, cancellable);
+                open = true;
+                
+                Gee.Collection<Geary.EmailIdentifier> used_ids
+                    = yield operation.exec_async(folder, ids, cancellable);
+                
+                yield folder.close_async(cancellable);
+                open = false;
+                
+                // We don't want to operate on any mails twice.
+                foreach (Geary.EmailIdentifier id in used_ids.to_array()) {
+                    foreach (Geary.FolderPath p in ids_to_folders.get(id))
+                        folders_to_ids.remove(p, id);
+                }
+            } catch (Error e) {
+                debug("Error performing an operation on messages in %s: %s", to_string(), e.message);
+                
+                if (open) {
+                    try {
+                        yield folder.close_async(cancellable);
+                        open = false;
+                    } catch (Error e) {
+                        debug("Error closing folder %s: %s", folder.to_string(), e.message);
+                    }
+                }
+            }
+        }
+        
+        if (folders_to_ids.size > 0)
+            debug("Couldn't perform an operation on some messages in %s", to_string());
+    }
+    
+    public override async void mark_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
+        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove,
+        Cancellable? cancellable = null) throws Error {
+        yield do_folder_operation_async(new MarkOperation(flags_to_add, flags_to_remove),
+            MarkOperation.folder_type, emails, cancellable);
     }
     
     private void on_login_failed(Geary.Credentials? credentials) {
