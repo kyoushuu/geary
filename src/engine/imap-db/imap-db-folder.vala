@@ -254,6 +254,8 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
                 
                 // Update unread count in DB.
                 do_add_to_unread_count(cx, unread_change, cancellable);
+                
+                total_unread_change += unread_change;
             }
             
             return Db.TransactionOutcome.COMMIT;
