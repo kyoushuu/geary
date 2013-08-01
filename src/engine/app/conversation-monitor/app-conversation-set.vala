@@ -113,20 +113,10 @@ private class Geary.App.ConversationSet : BaseObject {
         if (email_id_map.has_key(email.id))
             return null;
         
-        Conversation? conversation = null;
-        if (email.message_id != null) {
-            conversation = contained_message_id_map.get(email.message_id);
-            // This can happen when we find results in multiple folders or a
-            // message gets moved into the current folder after we found it
-            // through "full conversations".  They won't have the same
-            // EmailIdentifier, but (we assume) they're the same message
-            // otherwise.
-            if (conversation != null)
-                return null;
-        }
-        
         Gee.Set<Geary.RFC822.MessageID>? ancestors = email.get_ancestors();
-        if (conversation == null && ancestors != null) {
+        
+        Conversation? conversation = null;
+        if (ancestors != null) {
             foreach (Geary.RFC822.MessageID ancestor in ancestors) {
                 conversation = logical_message_id_map.get(ancestor);
                 if (conversation != null)
@@ -148,9 +138,7 @@ private class Geary.App.ConversationSet : BaseObject {
         
         email_id_map.set(email.id, conversation);
         
-        if (email.message_id == null)
-            debug("Adding email %s without Message-ID to conversation set", email.id.to_string());
-        else
+        if (email.message_id != null)
             contained_message_id_map.set(email.message_id, conversation);
         
         if (ancestors != null) {
@@ -209,7 +197,7 @@ private class Geary.App.ConversationSet : BaseObject {
         
         // Evaporate conversations with no more messages in the folder.
         // TODO: Need to determine this properly
-        if (conversation.get_count() == 0) {
+        if (conversation.get_count_in_folder() == 0) {
             foreach (Geary.Email conversation_email in conversation.get_emails(Conversation.Ordering.NONE))
                 remove_email_from_conversation(conversation, conversation_email);
             

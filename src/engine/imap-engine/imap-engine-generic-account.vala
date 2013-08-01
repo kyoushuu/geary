@@ -6,8 +6,8 @@
 
 private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
     private abstract class AsyncFolderOperation : BaseObject {
-        public abstract async Gee.Collection<Geary.EmailIdentifier> exec_async(
-            Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
+        public abstract async Gee.Collection<Geary.ImapDB.EmailIdentifier> exec_async(
+            Geary.Folder folder, Gee.Collection<Geary.ImapDB.EmailIdentifier> ids,
             Cancellable? cancellable) throws Error;
     }
     
@@ -22,14 +22,14 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
             this.flags_to_remove = flags_to_remove;
         }
         
-        public override async Gee.Collection<Geary.EmailIdentifier> exec_async(
-            Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
+        public override async Gee.Collection<Geary.ImapDB.EmailIdentifier> exec_async(
+            Geary.Folder folder, Gee.Collection<Geary.ImapDB.EmailIdentifier> ids,
             Cancellable? cancellable) throws Error {
             Geary.FolderSupport.Mark? mark = folder as Geary.FolderSupport.Mark;
             assert(mark != null);
             
-            Gee.List<Geary.EmailIdentifier> list
-                = Geary.Collection.to_array_list<Geary.EmailIdentifier>(ids);
+            Gee.List<Geary.ImapDB.EmailIdentifier> list
+                = Geary.Collection.to_array_list<Geary.ImapDB.EmailIdentifier>(ids);
             // FIXME: get folder-specific ids.  This won't work.
             yield mark.mark_email_async(list, flags_to_add, flags_to_remove, cancellable);
             return ids;
@@ -626,18 +626,18 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
     }
     
     private async void do_folder_operation_async(AsyncFolderOperation operation, Type folder_type,
-        Gee.Collection<Geary.EmailIdentifier> emails, Cancellable? cancellable) throws Error {
-        Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? ids_to_folders
+        Gee.Collection<Geary.ImapDB.EmailIdentifier> emails, Cancellable? cancellable) throws Error {
+        Gee.MultiMap<Geary.ImapDB.EmailIdentifier, Geary.FolderPath>? ids_to_folders
             = yield local.get_containing_folders_async(emails, cancellable);
-        Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids
-            = Geary.Collection.reverse_multi_map<Geary.EmailIdentifier, Geary.FolderPath>(ids_to_folders);
+        Gee.MultiMap<Geary.FolderPath, Geary.ImapDB.EmailIdentifier> folders_to_ids
+            = Geary.Collection.reverse_multi_map<Geary.ImapDB.EmailIdentifier, Geary.FolderPath>(ids_to_folders);
         Gee.HashMap<Geary.FolderPath, Geary.Folder> folders
             = yield get_folder_instances_async(folders_to_ids.get_keys(), cancellable);
         
         Geary.FolderPath? path;
         while ((path = next_folder_for_operation(folder_type, folders_to_ids, folders)) != null) {
             Geary.Folder folder = folders.get(path);
-            Gee.Collection<Geary.EmailIdentifier> ids = folders_to_ids.get(path);
+            Gee.Collection<Geary.ImapDB.EmailIdentifier> ids = folders_to_ids.get(path);
             assert(ids.size > 0);
             
             bool open = false;
@@ -645,14 +645,14 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
                 yield folder.open_async(Geary.Folder.OpenFlags.NONE, cancellable);
                 open = true;
                 
-                Gee.Collection<Geary.EmailIdentifier> used_ids
+                Gee.Collection<Geary.ImapDB.EmailIdentifier> used_ids
                     = yield operation.exec_async(folder, ids, cancellable);
                 
                 yield folder.close_async(cancellable);
                 open = false;
                 
                 // We don't want to operate on any mails twice.
-                foreach (Geary.EmailIdentifier id in used_ids.to_array()) {
+                foreach (Geary.ImapDB.EmailIdentifier id in used_ids.to_array()) {
                     foreach (Geary.FolderPath p in ids_to_folders.get(id))
                         folders_to_ids.remove(p, id);
                 }
@@ -674,7 +674,7 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
             debug("Couldn't perform an operation on some messages in %s", to_string());
     }
     
-    public override async void mark_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
+    public override async void mark_email_async(Gee.Collection<Geary.ImapDB.EmailIdentifier> emails,
         Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove,
         Cancellable? cancellable = null) throws Error {
         yield do_folder_operation_async(new MarkOperation(flags_to_add, flags_to_remove),

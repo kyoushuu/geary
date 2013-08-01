@@ -56,6 +56,14 @@ public void map_set_all<K, V>(Gee.Map<K, V> dest, Gee.Map<K, V> src) {
 }
 
 /**
+ * Sets multiple elements with the same key in a MultiMap.
+ */
+public void multi_map_set_all<K, V>(Gee.MultiMap<K, V> dest, K key, Gee.Collection<V> values) {
+    foreach (V value in values)
+        dest.set(key, value);
+}
+
+/**
  * Return a MultiMap of value => key of the input map's key => values.
  */
 public Gee.MultiMap<V, K> reverse_multi_map<K, V>(Gee.MultiMap<K, V> map) {

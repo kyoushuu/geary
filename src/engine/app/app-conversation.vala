@@ -68,6 +68,25 @@ public class Geary.App.Conversation : BaseObject {
     }
     
     /**
+     * Returns the number of emails in the conversation in a particular folder.
+     */
+    public async int get_count_in_folder_async(Geary.Account account, Geary.FolderPath path,
+        Cancellable? cancellable) throws Error {
+        Gee.MultiMap<Geary.ImapDB.EmailIdentifier, Geary.FolderPath>? folder_map
+            = yield account.get_containing_folders_async(emails.keys, cancellable);
+        
+        int count = 0;
+        if (folder_map != null) {
+            foreach (Geary.ImapDB.EmailIdentifier id in folder_map.get_keys()) {
+                if (path in folder_map.get(id))
+                    ++count;
+            }
+        }
+        
+        return count;
+    }
+    
+    /**
      * Returns all the email in the conversation sorted according to the specifier.
      */
     public Gee.List<Geary.Email> get_emails(Ordering ordering) {
@@ -221,24 +240,19 @@ public class Geary.App.Conversation : BaseObject {
     /**
      * Returns the earliest (first sent) email in the Conversation.
      */
-    public Geary.Email? get_earliest_email(bool folder_email_ids_only = false) {
-        return get_single_email(Ordering.DATE_ASCENDING, folder_email_ids_only);
+    public Geary.Email? get_earliest_email() {
+        return get_single_email(Ordering.DATE_ASCENDING);
    }
     
     /**
      * Returns the latest (most recently sent) email in the Conversation.
      */
-    public Geary.Email? get_latest_email(bool folder_email_ids_only = false) {
-        return get_single_email(Ordering.DATE_DESCENDING, folder_email_ids_only);
+    public Geary.Email? get_latest_email() {
+        return get_single_email(Ordering.DATE_DESCENDING);
     }
     
-    private Geary.Email? get_single_email(Ordering ordering,
-        bool folder_email_ids_only) {
-        foreach (Geary.Email email in get_emails(ordering)) {
-            if (!folder_email_ids_only || email.id.folder_path != null)
-                return email;
-        }
-        return null;
+    private Geary.Email? get_single_email(Ordering ordering) {
+        return Geary.Collection.get_first<Geary.Email>(get_emails(ordering));
     }
     
     /**
