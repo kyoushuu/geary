@@ -249,8 +249,8 @@ private class Geary.App.ConversationSet : BaseObject {
         Gee.Collection<Conversation> candidates, Geary.Account account,
         Geary.FolderPath required_folder_path, Cancellable? cancellable) throws Error {
         Gee.ArrayList<Conversation> evaporated = new Gee.ArrayList<Conversation>();
-        foreach (Geary.Conversation conversation in candidates) {
-            if (yield conversation.get_count_in_folder_async(account, required_folder_path, cancellable) == 0) {
+        foreach (Geary.App.Conversation conversation in candidates) {
+            if ((yield conversation.get_count_in_folder_async(account, required_folder_path, cancellable)) == 0) {
                 remove_conversation(conversation);
                 evaporated.add(conversation);
             }

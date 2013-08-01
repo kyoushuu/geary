@@ -584,6 +584,7 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
     
     public override async Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? get_containing_folders_async(
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable) throws Error {
+        // TODO: also handle other types of EmailIdentifiers, not just ImapDB.
         return yield local.get_containing_folders_async(check_ids(ids), cancellable);
     }
     
