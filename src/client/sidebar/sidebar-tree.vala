@@ -51,6 +51,7 @@ public class Sidebar.Tree : Gtk.TreeView {
         PIXBUF,
         CLOSED_PIXBUF,
         OPEN_PIXBUF,
+        COUNTER,
         N_COLUMNS
     }
     
@@ -60,7 +61,8 @@ public class Sidebar.Tree : Gtk.TreeView {
         typeof (EntryWrapper),      // WRAPPER
         typeof (Gdk.Pixbuf?),       // PIXBUF
         typeof (Gdk.Pixbuf?),       // CLOSED_PIXBUF
-        typeof (Gdk.Pixbuf?)        // OPEN_PIXBUF
+        typeof (Gdk.Pixbuf?),       // OPEN_PIXBUF
+        typeof (int)                // COUNTER
     );
     
     private Gtk.IconTheme? icon_theme;
@@ -100,6 +102,7 @@ public class Sidebar.Tree : Gtk.TreeView {
         Gtk.TreeViewColumn text_column = new Gtk.TreeViewColumn();
         text_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED);
         Gtk.CellRendererPixbuf icon_renderer = new Gtk.CellRendererPixbuf();
+        Gtk.CellRendererPixbuf counter_renderer = new Gtk.CellRendererPixbuf();
         text_column.pack_start(icon_renderer, false);
         text_column.add_attribute(icon_renderer, "pixbuf", Columns.PIXBUF);
         text_column.add_attribute(icon_renderer, "pixbuf_expander_closed", Columns.CLOSED_PIXBUF);
@@ -110,7 +113,12 @@ public class Sidebar.Tree : Gtk.TreeView {
         text_renderer.editing_started.connect(on_editing_started);
         text_column.pack_start(text_renderer, true);
         text_column.add_attribute(text_renderer, "markup", Columns.NAME);
+        text_column.pack_start(counter_renderer, false);
         append_column(text_column);
+        
+        Gtk.TreeViewColumn count_column = new Gtk.TreeViewColumn();
+        count_column.add_attribute(icon_renderer, "pixbuf", Columns.COUNTER);
+        append_column(count_column);
         
         set_headers_visible(false);
         set_enable_search(false);
@@ -163,6 +171,14 @@ public class Sidebar.Tree : Gtk.TreeView {
     }
     
     public void icon_renderer_function(Gtk.CellLayout layout, Gtk.CellRenderer renderer, Gtk.TreeModel model, Gtk.TreeIter iter) {
+        EntryWrapper? wrapper = get_wrapper_at_iter(iter);
+        if (wrapper == null) {
+            return;
+        }
+        renderer.visible = !(wrapper.entry is Sidebar.Header);
+    }
+    
+    public void counter_renderer_function(Gtk.CellLayout layout, Gtk.CellRenderer renderer, Gtk.TreeModel model, Gtk.TreeIter iter) {
         EntryWrapper? wrapper = get_wrapper_at_iter(iter);
         if (wrapper == null) {
             return;
@@ -471,6 +487,7 @@ public class Sidebar.Tree : Gtk.TreeView {
         store.set(assoc_iter, Columns.TOOLTIP, entry.get_sidebar_tooltip() != null ?
             Geary.HTML.escape_markup(entry.get_sidebar_tooltip()) : null);
         store.set(assoc_iter, Columns.WRAPPER, wrapper);
+        store.set(assoc_iter, Columns.COUNTER, entry.get_count());
         load_entry_icons(assoc_iter);
         
         entry.sidebar_tooltip_changed.connect(on_sidebar_tooltip_changed);
@@ -499,6 +516,7 @@ public class Sidebar.Tree : Gtk.TreeView {
         
         store.set(new_iter, Columns.NAME, get_name_for_entry(entry));
         store.set(new_iter, Columns.TOOLTIP, Geary.HTML.escape_markup(entry.get_sidebar_tooltip()));
+        store.set(new_iter, Columns.COUNTER, entry.get_count());
         store.set(new_iter, Columns.WRAPPER, new_wrapper);
         load_entry_icons(new_iter);
         

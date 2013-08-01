@@ -17,6 +17,8 @@ public interface Sidebar.Entry : Object {
     
     public abstract Icon? get_sidebar_icon();
     
+    public abstract int get_count();
+    
     public abstract string to_string();
     
     internal virtual void grafted(Sidebar.Tree tree) {

@@ -104,6 +104,11 @@ public class FolderList.FolderEntry : FolderList.AbstractFolderEntry, Sidebar.In
     
     private void on_email_unread_count_changed() {
         sidebar_name_changed(get_sidebar_name());
+        // TODO: unread count changed signal?
         sidebar_tooltip_changed(get_sidebar_tooltip());
+    }
+    
+    public override int get_count() {
+        return folder.properties.email_unread;
     }
 }
