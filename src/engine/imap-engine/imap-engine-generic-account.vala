@@ -582,6 +582,11 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
             cancellable);
     }
     
+    public override async Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? get_containing_folders_async(
+        Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable) throws Error {
+        return yield local.get_containing_folders_async(check_ids(ids), cancellable);
+    }
+    
     private async Gee.HashMap<Geary.FolderPath, Geary.Folder> get_folder_instances_async(
         Gee.Collection<Geary.FolderPath> paths, Cancellable? cancellable) throws Error {
         Gee.HashMap<Geary.FolderPath, Geary.Folder> folders

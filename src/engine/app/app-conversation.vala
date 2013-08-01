@@ -72,12 +72,12 @@ public class Geary.App.Conversation : BaseObject {
      */
     public async int get_count_in_folder_async(Geary.Account account, Geary.FolderPath path,
         Cancellable? cancellable) throws Error {
-        Gee.MultiMap<Geary.ImapDB.EmailIdentifier, Geary.FolderPath>? folder_map
+        Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? folder_map
             = yield account.get_containing_folders_async(emails.keys, cancellable);
         
         int count = 0;
         if (folder_map != null) {
-            foreach (Geary.ImapDB.EmailIdentifier id in folder_map.get_keys()) {
+            foreach (Geary.EmailIdentifier id in folder_map.get_keys()) {
                 if (path in folder_map.get(id))
                     ++count;
             }

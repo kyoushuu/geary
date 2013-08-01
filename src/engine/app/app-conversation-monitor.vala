@@ -653,6 +653,8 @@ public class Geary.App.ConversationMonitor : BaseObject {
         foreach (Conversation conversation in removed)
             notify_conversation_removed(conversation);
         
+        // TODO: call evaporate_conversations, send removed signal on any that got killed.
+        
         // For any still-existing conversations that we've trimmed messages
         // from, do a search for any messages that should still be there due to
         // full conversations.  This way, some removed messages are instead

@@ -72,28 +72,6 @@ private class Geary.App.ConversationSet : BaseObject {
             conversation.clear_owner();
     }
     
-    private void remove_email_from_conversation(Conversation conversation, Geary.Email email) {
-        // Be very strict about our internal state getting out of whack, since
-        // it would indicate a nasty error in our logic that we need to fix.
-        if (!email_id_map.unset(email.id))
-            error("Email %s already removed from conversation set", email.id.to_string());
-        
-        if (email.message_id != null) {
-            if (!contained_message_id_map.unset(email.message_id))
-                error("Message-ID %s already removed from conversation set", email.message_id.to_string());
-        }
-        
-        Gee.Set<Geary.RFC822.MessageID>? removed_message_ids = conversation.remove(email);
-        if (removed_message_ids != null) {
-            foreach (Geary.RFC822.MessageID removed_message_id in removed_message_ids) {
-                if (!logical_message_id_map.unset(removed_message_id)) {
-                    error("Message ID %s already removed from conversation set logical map",
-                        removed_message_id.to_string());
-                }
-            }
-        }
-    }
-    
     /**
      * Add the email (requires Field.REFERENCES) to the mix, potentially
      * replacing an existing email with the same id, or creating a new
@@ -177,6 +155,38 @@ private class Geary.App.ConversationSet : BaseObject {
         appended = _appended;
     }
     
+    private void remove_email_from_conversation(Conversation conversation, Geary.Email email) {
+        // Be very strict about our internal state getting out of whack, since
+        // it would indicate a nasty error in our logic that we need to fix.
+        if (!email_id_map.unset(email.id))
+            error("Email %s already removed from conversation set", email.id.to_string());
+        
+        if (email.message_id != null) {
+            if (!contained_message_id_map.unset(email.message_id))
+                error("Message-ID %s already removed from conversation set", email.message_id.to_string());
+        }
+        
+        Gee.Set<Geary.RFC822.MessageID>? removed_message_ids = conversation.remove(email);
+        if (removed_message_ids != null) {
+            foreach (Geary.RFC822.MessageID removed_message_id in removed_message_ids) {
+                if (!logical_message_id_map.unset(removed_message_id)) {
+                    error("Message ID %s already removed from conversation set logical map",
+                        removed_message_id.to_string());
+                }
+            }
+        }
+    }
+    
+    private void remove_conversation(Conversation conversation) {
+        foreach (Geary.Email conversation_email in conversation.get_emails(Conversation.Ordering.NONE))
+            remove_email_from_conversation(conversation, conversation_email);
+        
+        if (!_conversations.remove(conversation))
+            error("Conversation %s already removed from set", conversation.to_string());
+        
+        conversation.clear_owner();
+    }
+    
     public Conversation? remove_email_by_identifier(Geary.EmailIdentifier id,
         out Geary.Email? removed_email, out bool removed_conversation) {
         removed_email = null;
@@ -195,17 +205,10 @@ private class Geary.App.ConversationSet : BaseObject {
         
         remove_email_from_conversation(conversation, email);
         
-        // Evaporate conversations with no more messages in the folder.
-        // TODO: Need to determine this properly
-        if (conversation.get_count_in_folder() == 0) {
-            foreach (Geary.Email conversation_email in conversation.get_emails(Conversation.Ordering.NONE))
-                remove_email_from_conversation(conversation, conversation_email);
-            
-            if (!_conversations.remove(conversation))
-                error("Conversation %s already removed from set", conversation.to_string());
+        // Evaporate conversations with no more messages.
+        if (conversation.get_count() == 0) {
             debug("Removing email %s evaporates conversation %s", id.to_string(), conversation.to_string());
-            
-            conversation.clear_owner();
+            remove_conversation(conversation);
             
             removed_conversation = true;
         }
@@ -240,5 +243,19 @@ private class Geary.App.ConversationSet : BaseObject {
         
         removed = _removed;
         trimmed = _trimmed;
+    }
+    
+    public async Gee.Collection<Conversation> evaporate_conversations_async(
+        Gee.Collection<Conversation> candidates, Geary.Account account,
+        Geary.FolderPath required_folder_path, Cancellable? cancellable) throws Error {
+        Gee.ArrayList<Conversation> evaporated = new Gee.ArrayList<Conversation>();
+        foreach (Geary.Conversation conversation in candidates) {
+            if (yield conversation.get_count_in_folder_async(account, required_folder_path, cancellable) == 0) {
+                remove_conversation(conversation);
+                evaporated.add(conversation);
+            }
+        }
+        
+        return evaporated;
     }
 }

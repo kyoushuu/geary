@@ -106,6 +106,9 @@ public abstract class Geary.AbstractAccount : BaseObject, Geary.Account {
     public abstract async Gee.Collection<string>? get_search_matches_async(
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error;
     
+    public abstract async Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? get_containing_folders_async(
+        Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable) throws Error;
+    
     public abstract async void mark_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
         Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove,
         Cancellable? cancellable = null) throws Error;
