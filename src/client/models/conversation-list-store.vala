@@ -35,13 +35,13 @@ public class ConversationListStore : Gtk.ListStore {
         }
     }
     
-    public Geary.App.EmailStore? email_store = null;
     public string? account_owner_email { get; set; default = null; }
     public Geary.ProgressMonitor preview_monitor { get; private set; default = 
         new Geary.SimpleProgressMonitor(Geary.ProgressType.ACTIVITY); }
     
     private Geary.App.ConversationMonitor conversation_monitor;
     private Geary.Folder? current_folder = null;
+    private Geary.App.EmailStore? email_store = null;
     private Cancellable? cancellable_folder = null;
     private bool loading_local_only = true;
     private int conversations_added_counter = 0;

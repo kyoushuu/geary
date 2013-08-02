@@ -1061,10 +1061,7 @@ public class GearyController : Geary.BaseObject {
     
     private Gee.ArrayList<Geary.EmailIdentifier> get_conversation_email_ids(
         Geary.App.Conversation conversation, bool preview_message_only,
-        Gee.ArrayList<Geary.EmailIdentifier>? add_to) {
-        if (add_to == null)
-            add_to = new Gee.ArrayList<Geary.EmailIdentifier>();
-        
+        Gee.ArrayList<Geary.EmailIdentifier> add_to) {
         if (preview_message_only) {
             Geary.Email? preview = conversation.get_latest_email();
             if (preview != null)
@@ -1177,8 +1174,8 @@ public class GearyController : Geary.BaseObject {
     
     private void on_mark_conversation(Geary.App.Conversation conversation,
         Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove, bool only_mark_preview) {
-        mark_email(get_conversation_email_ids(conversation, only_mark_preview, null),
-            flags_to_add, flags_to_remove);
+        mark_email(get_conversation_email_ids(conversation, only_mark_preview,
+            new Gee.ArrayList<Geary.EmailIdentifier>()), flags_to_add, flags_to_remove);
     }
 
     private void on_conversation_viewer_mark_message(Geary.Email message, Geary.EmailFlags? flags_to_add,
@@ -1247,16 +1244,17 @@ public class GearyController : Geary.BaseObject {
             on_move_conversation(destination_folder);
     }
     
+    private void copy_email(Gee.Collection<Geary.EmailIdentifier> ids,
+        Geary.FolderPath destination) {
+        if (ids.size > 0) {
+            // TODO: handle other accounts.
+            email_stores.get(current_folder.account).copy_email_async.begin(
+                ids, destination, cancellable_message);
+        }
+    }
+    
     private void on_copy_conversation(Geary.Folder destination) {
-        // Nothing to do if nothing selected.
-        if (selected_conversations == null || selected_conversations.size == 0)
-            return;
-        
-        Gee.List<Geary.EmailIdentifier> ids = get_selected_folder_email_ids();
-        if (ids.size == 0)
-            return;
-        
-        current_folder.account.copy_email_async.begin(ids, destination.path, cancellable_message);
+        copy_email(get_selected_email_ids(false), destination.path);
     }
     
     private void on_move_conversation(Geary.Folder destination) {
@@ -1264,7 +1262,7 @@ public class GearyController : Geary.BaseObject {
         if (selected_conversations == null || selected_conversations.size == 0)
             return;
         
-        Gee.List<Geary.EmailIdentifier> ids = get_selected_email_ids();
+        Gee.List<Geary.EmailIdentifier> ids = get_selected_email_ids(false);
         if (ids.size == 0)
             return;
         
@@ -1487,7 +1485,7 @@ public class GearyController : Geary.BaseObject {
         // If the user clicked the toolbar button, we want to move focus back to the message list.
         main_window.conversation_list_view.grab_focus();
         
-        delete_messages.begin(get_selected_email_ids(), cancellable_folder, on_delete_messages_completed);
+        delete_messages.begin(get_selected_email_ids(false), cancellable_folder, on_delete_messages_completed);
     }
     
     // This method is used for both removing and archive a message; currently Geary only supports

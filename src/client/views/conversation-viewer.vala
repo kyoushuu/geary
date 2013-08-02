@@ -115,6 +115,7 @@ public class ConversationViewer : Gtk.Box {
     private Gtk.Menu? attachment_menu = null;
     private weak Geary.Folder? current_folder = null;
     private weak Geary.SearchFolder? search_folder = null;
+    private Geary.App.EmailStore? email_store = null;
     private Geary.AccountInformation? current_account_information = null;
     private ConversationFindBar conversation_find_bar;
     private Cancellable cancellable_fetch = new Cancellable();
@@ -227,6 +228,7 @@ public class ConversationViewer : Gtk.Box {
     
     private void on_folder_selected(Geary.Folder? folder) {
         current_folder = folder;
+        email_store = (current_folder == null ? null : new Geary.App.EmailStore(current_folder.account));
         fsm.issue(SearchEvent.RESET);
         
         if (folder == null) {
@@ -368,16 +370,8 @@ public class ConversationViewer : Gtk.Box {
         Geary.Email.Field required_fields = ConversationViewer.REQUIRED_FIELDS |
             Geary.ComposedEmail.REQUIRED_REPLY_FIELDS;
         
-        Geary.Email full_email;
-        if (email.id.folder_path == null) {
-            full_email = yield current_folder.account.local_fetch_email_async(
-                email.id, required_fields, cancellable);
-        } else {
-            full_email = yield current_folder.fetch_email_async(email.id,
-                required_fields, Geary.Folder.ListFlags.NONE, cancellable);
-        }
-        
-        return full_email;
+        return yield email_store.fetch_email_async(email.id, required_fields,
+            Geary.Folder.ListFlags.NONE, cancellable);
     }
     
     // Cancels the current message load, if in progress.
