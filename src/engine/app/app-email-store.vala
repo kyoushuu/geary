@@ -5,138 +5,6 @@
  */
 
 public class Geary.App.EmailStore : BaseObject {
-    // TODO: move these out into separate files.
-    private abstract class AsyncFolderOperation : BaseObject {
-        public abstract Type folder_type { get; }
-        public virtual Geary.FolderPath? restrict_to_folder { get { return null; } }
-        public abstract async Gee.Collection<Geary.EmailIdentifier> exec_async(
-            Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
-            Cancellable? cancellable) throws Error;
-    }
-    
-    private class ListOperation : AsyncFolderOperation {
-        public override Type folder_type { get { return typeof(Geary.Folder); } }
-        
-        public Gee.HashSet<Geary.Email> results;
-        public Geary.Email.Field required_fields;
-        public Geary.Folder.ListFlags flags;
-        
-        public ListOperation(Geary.Email.Field required_fields, Geary.Folder.ListFlags flags) {
-            results = new Gee.HashSet<Geary.Email>();
-            this.required_fields = required_fields;
-            this.flags = flags;
-        }
-        
-        public override async Gee.Collection<Geary.EmailIdentifier> exec_async(
-            Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
-            Cancellable? cancellable) throws Error {
-            // TODO: catch/ignore/save certain exceptions?
-            results.add_all(yield folder.list_email_by_sparse_id_async(
-                ids, required_fields, flags, cancellable));
-            return ids;
-        }
-    }
-    
-    private class FetchOperation : AsyncFolderOperation {
-        public override Type folder_type { get { return typeof(Geary.Folder); } }
-        
-        public Geary.Email? result = null;
-        public Geary.Email.Field required_fields;
-        public Geary.Folder.ListFlags flags;
-        
-        public FetchOperation(Geary.Email.Field required_fields, Geary.Folder.ListFlags flags) {
-            this.required_fields = required_fields;
-            this.flags = flags;
-        }
-        
-        public override async Gee.Collection<Geary.EmailIdentifier> exec_async(
-            Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
-            Cancellable? cancellable) throws Error {
-            assert(result == null);
-            Geary.EmailIdentifier? id = Geary.Collection.get_first(ids);
-            assert(id != null);
-            
-            // TODO: catch/ignore/save certain exceptions?
-            result = yield folder.fetch_email_async(
-                id, required_fields, flags, cancellable);
-            return new Geary.Collection.SingleItem<Geary.EmailIdentifier>(id);
-        }
-    }
-    
-    private class MarkOperation : AsyncFolderOperation {
-        public override Type folder_type { get { return typeof(Geary.FolderSupport.Mark); } }
-        
-        public Geary.EmailFlags? flags_to_add;
-        public Geary.EmailFlags? flags_to_remove;
-        
-        public MarkOperation(Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove) {
-            this.flags_to_add = flags_to_add;
-            this.flags_to_remove = flags_to_remove;
-        }
-        
-        public override async Gee.Collection<Geary.EmailIdentifier> exec_async(
-            Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
-            Cancellable? cancellable) throws Error {
-            Geary.FolderSupport.Mark? mark = folder as Geary.FolderSupport.Mark;
-            assert(mark != null);
-            
-            Gee.List<Geary.EmailIdentifier> list
-                = Geary.Collection.to_array_list<Geary.EmailIdentifier>(ids);
-            // TODO: catch/ignore/save certain exceptions?
-            yield mark.mark_email_async(list, flags_to_add, flags_to_remove, cancellable);
-            return ids;
-        }
-    }
-    
-    private class CopyOperation : AsyncFolderOperation {
-        public override Type folder_type { get { return typeof(Geary.FolderSupport.Copy); } }
-        
-        public Geary.FolderPath destination;
-        
-        public CopyOperation(Geary.FolderPath destination) {
-            this.destination = destination;
-        }
-        
-        public override async Gee.Collection<Geary.EmailIdentifier> exec_async(
-            Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
-            Cancellable? cancellable) throws Error {
-            Geary.FolderSupport.Copy? copy = folder as Geary.FolderSupport.Copy;
-            assert(copy != null);
-            
-            Gee.List<Geary.EmailIdentifier> list
-                = Geary.Collection.to_array_list<Geary.EmailIdentifier>(ids);
-            // TODO: catch/ignore/save certain exceptions?
-            yield copy.copy_email_async(list, destination, cancellable);
-            return ids;
-        }
-    }
-    
-    private class MoveOperation : AsyncFolderOperation {
-        public override Type folder_type { get { return typeof(Geary.FolderSupport.Move); } }
-        public override Geary.FolderPath? restrict_to_folder { get { return origin; } }
-        
-        public Geary.FolderPath origin;
-        public Geary.FolderPath destination;
-        
-        public MoveOperation(Geary.FolderPath origin, Geary.FolderPath destination) {
-            this.origin = origin;
-            this.destination = destination;
-        }
-        
-        public override async Gee.Collection<Geary.EmailIdentifier> exec_async(
-            Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
-            Cancellable? cancellable) throws Error {
-            Geary.FolderSupport.Move? move = folder as Geary.FolderSupport.Move;
-            assert(move != null);
-            
-            Gee.List<Geary.EmailIdentifier> list
-                = Geary.Collection.to_array_list<Geary.EmailIdentifier>(ids);
-            // TODO: catch/ignore/save certain exceptions?
-            yield move.move_email_async(list, destination, cancellable);
-            return ids;
-        }
-    }
-    
     public Geary.Account account { get; private set; }
     
     public EmailStore(Geary.Account account) {
@@ -149,7 +17,7 @@ public class Geary.App.EmailStore : BaseObject {
     public async Gee.Collection<Geary.Email>? list_email_by_sparse_id_async(
         Gee.Collection<Geary.EmailIdentifier> emails, Geary.Email.Field required_fields,
         Geary.Folder.ListFlags flags, Cancellable? cancellable = null) throws Error {
-        ListOperation op = new ListOperation(required_fields, flags);
+        ListOperation op = new Geary.App.ListOperation(required_fields, flags);
         yield do_folder_operation_async(op, emails, cancellable);
         return (op.results.size > 0 ? op.results : null);
     }
@@ -160,7 +28,7 @@ public class Geary.App.EmailStore : BaseObject {
     public async Geary.Email fetch_email_async(Geary.EmailIdentifier email_id,
         Geary.Email.Field required_fields, Geary.Folder.ListFlags flags,
         Cancellable? cancellable = null) throws Error {
-        FetchOperation op = new FetchOperation(required_fields, flags);
+        FetchOperation op = new Geary.App.FetchOperation(required_fields, flags);
         yield do_folder_operation_async(op,
             new Geary.Collection.SingleItem<Geary.EmailIdentifier>(email_id), cancellable);
         
@@ -175,7 +43,7 @@ public class Geary.App.EmailStore : BaseObject {
     public async void mark_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
         Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove,
         Cancellable? cancellable = null) throws Error {
-        yield do_folder_operation_async(new MarkOperation(flags_to_add, flags_to_remove),
+        yield do_folder_operation_async(new Geary.App.MarkOperation(flags_to_add, flags_to_remove),
             emails, cancellable);
     }
     
@@ -185,7 +53,7 @@ public class Geary.App.EmailStore : BaseObject {
      */
     public async void copy_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
         Geary.FolderPath destination, Cancellable? cancellable = null) throws Error {
-        yield do_folder_operation_async(new CopyOperation(destination),
+        yield do_folder_operation_async(new Geary.App.CopyOperation(destination),
             emails, cancellable);
     }
     
@@ -196,7 +64,7 @@ public class Geary.App.EmailStore : BaseObject {
     public async void move_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
         Geary.FolderPath origin, Geary.FolderPath destination,
         Cancellable? cancellable = null) throws Error {
-        yield do_folder_operation_async(new MoveOperation(origin, destination),
+        yield do_folder_operation_async(new Geary.App.MoveOperation(origin, destination),
             emails, cancellable);
     }
     

@@ -65,6 +65,13 @@ engine/app/conversation-monitor/app-remove-operation.vala
 engine/app/conversation-monitor/app-reseed-operation.vala
 engine/app/conversation-monitor/app-terminate-operation.vala
 
+engine/app/email-store/app-async-folder-operation.vala
+engine/app/email-store/app-copy-operation.vala
+engine/app/email-store/app-fetch-operation.vala
+engine/app/email-store/app-list-operation.vala
+engine/app/email-store/app-mark-operation.vala
+engine/app/email-store/app-move-operation.vala
+
 engine/common/common-message-data.vala
 
 engine/db/db.vala
