@@ -1257,18 +1257,17 @@ public class GearyController : Geary.BaseObject {
         copy_email(get_selected_email_ids(false), destination.path);
     }
     
+    private void move_email(Gee.Collection<Geary.EmailIdentifier> ids,
+        Geary.FolderPath destination) {
+        if (ids.size > 0) {
+            // TODO: handle other accounts.
+            email_stores.get(current_folder.account).move_email_async.begin(
+                ids, current_folder.path, destination, cancellable_message);
+        }
+    }
+    
     private void on_move_conversation(Geary.Folder destination) {
-        // Nothing to do if nothing selected.
-        if (selected_conversations == null || selected_conversations.size == 0)
-            return;
-        
-        Gee.List<Geary.EmailIdentifier> ids = get_selected_email_ids(false);
-        if (ids.size == 0)
-            return;
-        
-        // TODO: this is likely not how the interface will look, since we need
-        // an origin path.
-        current_folder.account.move_email_async.begin(ids, destination.path, cancellable_message);
+        move_email(get_selected_email_ids(false), destination.path);
     }
     
     private void on_open_attachment(Geary.Attachment attachment) {
