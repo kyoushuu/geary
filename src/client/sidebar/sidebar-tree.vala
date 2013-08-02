@@ -100,9 +100,8 @@ public class Sidebar.Tree : Gtk.TreeView {
         get_style_context().add_class("sidebar");
         
         Gtk.TreeViewColumn text_column = new Gtk.TreeViewColumn();
-        text_column.set_sizing(Gtk.TreeViewColumnSizing.FIXED);
+        text_column.set_expand(true);
         Gtk.CellRendererPixbuf icon_renderer = new Gtk.CellRendererPixbuf();
-        Gtk.CellRendererPixbuf counter_renderer = new Gtk.CellRendererPixbuf();
         text_column.pack_start(icon_renderer, false);
         text_column.add_attribute(icon_renderer, "pixbuf", Columns.PIXBUF);
         text_column.add_attribute(icon_renderer, "pixbuf_expander_closed", Columns.CLOSED_PIXBUF);
@@ -113,11 +112,13 @@ public class Sidebar.Tree : Gtk.TreeView {
         text_renderer.editing_started.connect(on_editing_started);
         text_column.pack_start(text_renderer, true);
         text_column.add_attribute(text_renderer, "markup", Columns.NAME);
-        text_column.pack_start(counter_renderer, false);
         append_column(text_column);
         
+        // Count column.
         Gtk.TreeViewColumn count_column = new Gtk.TreeViewColumn();
-        count_column.add_attribute(icon_renderer, "pixbuf", Columns.COUNTER);
+        SidebarCountCellRenderer unread_renderer = new SidebarCountCellRenderer();
+        count_column.pack_start(unread_renderer, false);
+        count_column.add_attribute(unread_renderer, "counter", Columns.COUNTER);
         append_column(count_column);
         
         set_headers_visible(false);
