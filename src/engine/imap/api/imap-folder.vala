@@ -858,14 +858,11 @@ private class Geary.Imap.Folder : BaseObject {
         
         // Grab the response and parse out the UID, if available.
         StatusResponse response = responses.get(cmd);
-        if (response.status == Status.OK && response.size >= 2) {
-            ListParameter? result_list = response.get_as_list(2);
+        if (response.status == Status.OK && response.response_code != null &&
+            response.response_code.get_response_code_type().is_value("appenduid")) {
+            UID new_id = new UID(response.response_code.get_as_string(2).as_int());
             
-            if (result_list != null && result_list.get_as_string(0).to_string() == "APPENDUID") {
-                UID new_id = new UID(result_list.get_as_string(2).as_int());
-                
-                return new Geary.Imap.EmailIdentifier(new_id, path);
-            }
+            return new Geary.Imap.EmailIdentifier(new_id, path);
         }
         
         // We didn't get a UID back from the server.
