@@ -261,7 +261,6 @@ public class Geary.App.EmailStore : BaseObject {
             = yield account.get_containing_folders_async(emails, cancellable);
         Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids
             = Geary.Collection.reverse_multi_map<Geary.EmailIdentifier, Geary.FolderPath>(ids_to_folders);
-        // TODO: don't build this up all at once, but only as they're needed.
         Gee.HashMap<Geary.FolderPath, Geary.Folder> folders
             = yield get_folder_instances_async(folders_to_ids.get_keys(), cancellable);
         
