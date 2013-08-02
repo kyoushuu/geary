@@ -51,6 +51,7 @@ engine/api/geary-special-folder-type.vala
 
 engine/app/app-conversation.vala
 engine/app/app-conversation-monitor.vala
+engine/app/app-email-store.vala
 
 engine/app/conversation-monitor/app-append-operation.vala
 engine/app/conversation-monitor/app-conversation-operation-queue.vala

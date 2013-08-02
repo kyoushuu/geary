@@ -278,14 +278,6 @@ public interface Geary.Account : BaseObject {
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable) throws Error;
     
     /**
-     * Marks any set of EmailIdentifiers as if they were all in one
-     * Geary.FolderSupport.Mark folder.
-     */
-    public abstract async void mark_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
-        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove,
-        Cancellable? cancellable = null) throws Error;
-    
-    /**
      * Used only for debugging.  Should not be used for user-visible strings.
      */
     public abstract string to_string();

@@ -35,6 +35,7 @@ public class ConversationListStore : Gtk.ListStore {
         }
     }
     
+    public Geary.App.EmailStore? email_store = null;
     public string? account_owner_email { get; set; default = null; }
     public Geary.ProgressMonitor preview_monitor { get; private set; default = 
         new Geary.SimpleProgressMonitor(Geary.ProgressType.ACTIVITY); }
@@ -97,6 +98,7 @@ public class ConversationListStore : Gtk.ListStore {
     public void set_current_folder(Geary.Folder? current_folder, Cancellable? cancellable_folder) {
         this.current_folder = current_folder;
         this.cancellable_folder = cancellable_folder;
+        email_store = (current_folder == null ? null : new Geary.App.EmailStore(current_folder.account));
     }
     
     public Geary.EmailIdentifier? get_lowest_email_id() {
@@ -173,7 +175,7 @@ public class ConversationListStore : Gtk.ListStore {
         
         Gee.ArrayList<Geary.Email> emails = new Gee.ArrayList<Geary.Email>();
         if (needing_previews.size > 0)
-            emails.add_all(yield do_get_previews_async(conversation_monitor, needing_previews));
+            emails.add_all(yield do_get_previews_async(needing_previews));
         if (emails.size < 1)
             return;
         
@@ -188,17 +190,16 @@ public class ConversationListStore : Gtk.ListStore {
         debug("Displayed %d previews for %s", emails.size, current_folder.to_string());
     }
     
-    private async Gee.List<Geary.Email> do_get_folder_previews_async(
-        Geary.App.ConversationMonitor conversation_monitor,
+    private async Gee.Collection<Geary.Email> do_get_previews_async(
         Gee.Collection<Geary.EmailIdentifier> emails_needing_previews) {
         Geary.Folder.ListFlags flags = (loading_local_only) ? Geary.Folder.ListFlags.LOCAL_ONLY
             : Geary.Folder.ListFlags.NONE;
-        Gee.List<Geary.Email>? emails = null;
+        Gee.Collection<Geary.Email>? emails = null;
         try {
-            debug("Loading %d previews for %s...", emails_needing_previews.size, current_folder.to_string());
-            emails = yield current_folder.list_email_by_sparse_id_async(emails_needing_previews,
+            debug("Loading %d previews...", emails_needing_previews.size);
+            emails = yield email_store.list_email_by_sparse_id_async(emails_needing_previews,
                 ConversationListStore.WITH_PREVIEW_FIELDS, flags, cancellable_folder);
-            debug("Loaded %d previews for %s...", emails_needing_previews.size, current_folder.to_string());
+            debug("Loaded %d previews...", emails.size);
         } catch (Error err) {
             // Ignore NOT_FOUND, as that's entirely possible when waiting for the remote to open
             if (!(err is Geary.EngineError.NOT_FOUND))
@@ -206,26 +207,6 @@ public class ConversationListStore : Gtk.ListStore {
         }
         
         return emails ?? new Gee.ArrayList<Geary.Email>();
-    }
-    
-    private async Gee.List<Geary.Email> do_get_account_previews_async(
-        Geary.App.ConversationMonitor conversation_monitor,
-        Gee.Collection<Geary.EmailIdentifier> emails_needing_previews) {
-        debug("Loading %d previews from %s...", emails_needing_previews.size,
-            current_folder.account.to_string());
-        Gee.List<Geary.Email> emails = new Gee.ArrayList<Geary.Email>();
-        foreach (Geary.EmailIdentifier id in emails_needing_previews) {
-            try {
-                emails.add(yield current_folder.account.local_fetch_email_async(id,
-                    ConversationListStore.WITH_PREVIEW_FIELDS, cancellable_folder));
-            } catch (Error err) {
-                debug("Unable to fetch preview for %s: %s", id.to_string(), err.message);
-            }
-        }
-        debug("Loaded %d previews from %s...", emails_needing_previews.size,
-            current_folder.account.to_string());
-        
-        return emails;
     }
     
     private Gee.Set<Geary.EmailIdentifier> get_emails_needing_previews() {

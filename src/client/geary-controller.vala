@@ -67,6 +67,8 @@ public class GearyController : Geary.BaseObject {
     public Geary.App.ConversationMonitor? current_conversations { get; private set; default = null; }
     
     private Geary.Account? current_account = null;
+    private Gee.HashMap<Geary.Account, Geary.App.EmailStore> email_stores
+        = new Gee.HashMap<Geary.Account, Geary.App.EmailStore>();
     private Gee.HashMap<Geary.Account, Geary.Folder> inboxes
         = new Gee.HashMap<Geary.Account, Geary.Folder>();
     private Geary.Folder? current_folder = null;
@@ -586,6 +588,7 @@ public class GearyController : Geary.BaseObject {
             GearyApplication.instance.panic();
         }
         
+        email_stores.set(account, new Geary.App.EmailStore(account));
         inbox_cancellables.set(account, new Cancellable());
         
         account.email_sent.connect(on_sent);
@@ -627,6 +630,7 @@ public class GearyController : Geary.BaseObject {
         }
         
         inbox_cancellables.unset(account);
+        email_stores.unset(account);
         
         // If there are no accounts available, exit.  (This can happen if the user declines to
         // enter a password on their account.)
@@ -1054,30 +1058,39 @@ public class GearyController : Geary.BaseObject {
     private void on_preferences() {
         PreferencesDialog.show_instance();
     }
-
-    private Gee.List<Geary.EmailIdentifier> get_selected_email_ids(
-        bool preview_messages_only = false) {
-        Gee.ArrayList<Geary.EmailIdentifier> ids = new Gee.ArrayList<Geary.EmailIdentifier>();
-        foreach (Geary.App.Conversation conversation in selected_conversations) {
-            if (preview_messages_only) {
-                Geary.Email? preview = conversation.get_latest_email();
-                if (preview != null)
-                    ids.add(preview.id);
-            } else {
-                ids.add_all(conversation.get_email_ids());
-            }
+    
+    private Gee.ArrayList<Geary.EmailIdentifier> get_conversation_email_ids(
+        Geary.App.Conversation conversation, bool preview_message_only,
+        Gee.ArrayList<Geary.EmailIdentifier>? add_to) {
+        if (add_to == null)
+            add_to = new Gee.ArrayList<Geary.EmailIdentifier>();
+        
+        if (preview_message_only) {
+            Geary.Email? preview = conversation.get_latest_email();
+            if (preview != null)
+                add_to.add(preview.id);
+        } else {
+            add_to.add_all(conversation.get_email_ids());
         }
+        
+        return add_to;
+    }
+    
+    private Gee.ArrayList<Geary.EmailIdentifier> get_selected_email_ids(
+        bool preview_messages_only) {
+        Gee.ArrayList<Geary.EmailIdentifier> ids = new Gee.ArrayList<Geary.EmailIdentifier>();
+        foreach (Geary.App.Conversation conversation in selected_conversations)
+            get_conversation_email_ids(conversation, preview_messages_only, ids);
         return ids;
     }
     
-    private Gee.List<Geary.EmailIdentifier> mark_selected_conversations(Geary.EmailFlags? flags_to_add,
-        Geary.EmailFlags? flags_to_remove, bool preview_message_only = false) {
-        Gee.List<Geary.EmailIdentifier> ids = get_selected_email_ids(preview_message_only);
+    private void mark_email(Gee.Collection<Geary.EmailIdentifier> ids,
+        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove) {
         if (ids.size > 0) {
-            current_folder.account.mark_email_async.begin(ids, flags_to_add,
-                flags_to_remove, cancellable_message);
+            // TODO: handle other accounts.
+            email_stores.get(current_folder.account).mark_email_async.begin(
+                ids, flags_to_add, flags_to_remove, cancellable_message);
         }
-        return ids;
     }
     
     private void on_show_mark_menu() {
@@ -1163,17 +1176,9 @@ public class GearyController : Geary.BaseObject {
     }
     
     private void on_mark_conversation(Geary.App.Conversation conversation,
-        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove, bool only_mark_preview = false) {
-        Geary.FolderSupport.Mark? supports_mark = current_folder as Geary.FolderSupport.Mark;
-        if (supports_mark == null)
-            return;
-        
-        Gee.Collection<Geary.EmailIdentifier> ids
-            = get_conversation_email_ids(conversation, true, only_mark_preview);
-        if (ids.size > 0) {
-            supports_mark.mark_email_async.begin(Geary.Collection.to_array_list<Geary.EmailIdentifier>(ids),
-                flags_to_add, flags_to_remove, cancellable_message);
-        }
+        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove, bool only_mark_preview) {
+        mark_email(get_conversation_email_ids(conversation, only_mark_preview, null),
+            flags_to_add, flags_to_remove);
     }
 
     private void on_conversation_viewer_mark_message(Geary.Email message, Geary.EmailFlags? flags_to_add,
@@ -1189,27 +1194,35 @@ public class GearyController : Geary.BaseObject {
     private void on_mark_as_read() {
         Geary.EmailFlags flags = new Geary.EmailFlags();
         flags.add(Geary.EmailFlags.UNREAD);
-        foreach (Geary.EmailIdentifier id in mark_selected_conversations(null, flags))
+        
+        Gee.ArrayList<Geary.EmailIdentifier> ids = get_selected_email_ids(false);
+        mark_email(ids, null, flags);
+        
+        foreach (Geary.EmailIdentifier id in ids)
             main_window.conversation_viewer.mark_manual_read(id);
     }
 
     private void on_mark_as_unread() {
         Geary.EmailFlags flags = new Geary.EmailFlags();
         flags.add(Geary.EmailFlags.UNREAD);
-        foreach (Geary.EmailIdentifier id in mark_selected_conversations(flags, null))
+        
+        Gee.ArrayList<Geary.EmailIdentifier> ids = get_selected_email_ids(false);
+        mark_email(ids, flags, null);
+        
+        foreach (Geary.EmailIdentifier id in ids)
             main_window.conversation_viewer.mark_manual_read(id);
     }
 
     private void on_mark_as_starred() {
         Geary.EmailFlags flags = new Geary.EmailFlags();
         flags.add(Geary.EmailFlags.FLAGGED);
-        mark_selected_conversations(flags, null, true);
+        mark_email(get_selected_email_ids(true), flags, null);
     }
 
     private void on_mark_as_unstarred() {
         Geary.EmailFlags flags = new Geary.EmailFlags();
         flags.add(Geary.EmailFlags.FLAGGED);
-        mark_selected_conversations(null, flags);
+        mark_email(get_selected_email_ids(false), null, flags);
     }
     
     private void on_mark_as_spam() {
