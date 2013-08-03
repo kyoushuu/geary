@@ -5,7 +5,7 @@
  */
 
 /**
- * Cell renderer for count in sidebar.
+ * Cell renderer for counter in sidebar.
  */
 public class SidebarCountCellRenderer : Gtk.CellRenderer {
     private const int HORIZONTAL_MARGIN = 4;
@@ -55,8 +55,6 @@ public class SidebarCountCellRenderer : Gtk.CellRenderer {
         
         return ink_rect.width + (HORIZONTAL_MARGIN * 2);
     }
-    
-    
     
     // This is implemented because it's required; ignore it and look at get_preferred_width() instead.
     public override void get_size(Gtk.Widget widget, Gdk.Rectangle? cell_area, out int x_offset, 

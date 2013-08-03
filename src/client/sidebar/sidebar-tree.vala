@@ -494,6 +494,7 @@ public class Sidebar.Tree : Gtk.TreeView {
         entry.sidebar_tooltip_changed.connect(on_sidebar_tooltip_changed);
         entry.sidebar_icon_changed.connect(on_sidebar_icon_changed);
         entry.sidebar_name_changed.connect(on_sidebar_name_changed);
+        entry.sidebar_count_changed.connect(on_sidebar_count_changed);
         
         Sidebar.EmphasizableEntry? emphasizable = entry as Sidebar.EmphasizableEntry;
         if (emphasizable != null)
@@ -608,6 +609,7 @@ public class Sidebar.Tree : Gtk.TreeView {
         entry.sidebar_tooltip_changed.disconnect(on_sidebar_tooltip_changed);
         entry.sidebar_icon_changed.disconnect(on_sidebar_icon_changed);
         entry.sidebar_name_changed.disconnect(on_sidebar_name_changed);
+        entry.sidebar_count_changed.disconnect(on_sidebar_count_changed);
         
         Sidebar.EmphasizableEntry? emphasizable = entry as Sidebar.EmphasizableEntry;
         if (emphasizable != null)
@@ -775,6 +777,13 @@ public class Sidebar.Tree : Gtk.TreeView {
     
     private void on_is_emphasized_changed(Sidebar.EmphasizableEntry entry, bool is_emphasized) {
         rename_entry(entry);
+    }
+    
+    private void on_sidebar_count_changed(Sidebar.Entry entry, int coun) {
+        EntryWrapper? wrapper = get_wrapper(entry);
+        assert(wrapper != null);
+        
+        store.set(wrapper.get_iter(), Columns.COUNTER, entry.get_count());
     }
     
     private Gdk.Pixbuf? fetch_icon_pixbuf(GLib.Icon? gicon) {

@@ -11,6 +11,8 @@ public interface Sidebar.Entry : Object {
     
     public signal void sidebar_icon_changed(Icon? icon);
     
+    public signal void sidebar_count_changed(int count);
+    
     public abstract string get_sidebar_name();
     
     public abstract string? get_sidebar_tooltip();
