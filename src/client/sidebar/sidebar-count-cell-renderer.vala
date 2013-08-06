@@ -46,10 +46,10 @@ public class SidebarCountCellRenderer : Gtk.CellRenderer {
         Pango.Rectangle? logical_rect;
         layout_num.get_pixel_extents(out ink_rect, out logical_rect);
         if (ctx != null && cell_area != null) {
-            // Compute x and y locations to center the count.
-            int x = cell_area.x + ((cell_area.width - logical_rect.width) / 2);
+            // Compute x and y locations to right-align and vertically center the count.
+            int x = cell_area.x + (cell_area.width - logical_rect.width) - HORIZONTAL_MARGIN;
             int y = cell_area.y + ((cell_area.height - logical_rect.height) / 2);
-            ctx.move_to(x,  y);
+            ctx.move_to(x, y);
             Pango.cairo_show_layout(ctx, layout_num);
         }
         
