@@ -26,6 +26,17 @@ private class Geary.ImapDB.EmailIdentifier : Geary.EmailIdentifier {
         this.uid = uid;
     }
     
+    // Used to promote an id created with no_message_id to one that has a
+    // message id.  Warning: this causes the hash value to change, so if you
+    // have any EmailIdentifiers in a hashed data structure, this will cause
+    // you not to be able to find them.
+    public void promote_with_message_id(int64 message_id) {
+        assert(this.message_id == Db.INVALID_ROWID);
+        
+        unique = message_id;
+        this.message_id = message_id;
+    }
+    
     public override int natural_sort_comparator(Geary.EmailIdentifier o) {
         ImapDB.EmailIdentifier? other = o as ImapDB.EmailIdentifier;
         if (other == null)
@@ -38,6 +49,10 @@ private class Geary.ImapDB.EmailIdentifier : Geary.EmailIdentifier {
             return -1;
         
         return uid.compare_to(other.uid);
+    }
+    
+    public override string to_string() {
+        return "[%s/%s]".printf(message_id.to_string(), (uid == null ? "null" : uid.to_string()));
     }
     
     // Email's with no UID get sorted after emails with

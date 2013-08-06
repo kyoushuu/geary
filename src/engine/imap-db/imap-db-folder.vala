@@ -206,7 +206,11 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
     }
     
     // Returns a Map with the created or merged email as the key and the result of the operation
-    // (true if created, false if merged) as the value
+    // (true if created, false if merged) as the value.  Note that every email
+    // object passed in's EmailIdentifier will be fully filled out by this
+    // function (see ImapDB.EmailIdentifier.promote_with_message_id).  This
+    // means if you've hashed the collection of EmailIdentifiers prior, you may
+    // not be able to find them after this function.  Be warned.
     public async Gee.Map<Geary.Email, bool> create_or_merge_email_async(Gee.Collection<Geary.Email> emails,
         Cancellable? cancellable) throws Error {
         Gee.HashMap<Geary.Email, bool> results = new Gee.HashMap<Geary.Email, bool>();
@@ -948,12 +952,19 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
             }
             
             Db.Statement search_stmt = cx.prepare(
-                "SELECT id FROM MessageLocationTable WHERE message_id=? AND folder_id=?");
+                "SELECT ordering FROM MessageLocationTable WHERE message_id=? AND folder_id=?");
             search_stmt.bind_rowid(0, message_id);
             search_stmt.bind_rowid(1, folder_id);
             
             Db.Result search_results = search_stmt.exec(cancellable);
-            associated = !search_results.finished;
+            if (!search_results.finished) {
+                associated = true;
+                location = new LocationIdentifier(message_id, new Imap.UID(search_results.int64_at(0)));
+            } else {
+                ImapDB.EmailIdentifier email_id = (ImapDB.EmailIdentifier) email.id;
+                assert(email_id.uid != null);
+                location = new LocationIdentifier(message_id, email_id.uid);
+            }
             
             return location;
         }
@@ -1008,8 +1019,10 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         // not found, so create and associate with this folder
         MessageRow row = new MessageRow.from_email(email);
         
+        ImapDB.EmailIdentifier email_id = (ImapDB.EmailIdentifier) email.id;
+        
         // the create case *requires* a UID be present (originating from Imap.Folder)
-        Imap.UID? uid = ((ImapDB.EmailIdentifier) email.id).uid;
+        Imap.UID? uid = email_id.uid;
         assert(uid != null);
         
         pre_fields = Geary.Email.Field.NONE;
@@ -1043,6 +1056,11 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         stmt.bind_long(19, row.rfc822_size);
         
         int64 message_id = stmt.exec_insert(cancellable);
+        
+        // Make sure the id is filled in even if it came from the Imap layer.
+        if (email_id.message_id == Db.INVALID_ROWID)
+            email_id.promote_with_message_id(message_id);
+        
         do_associate_with_folder(cx, message_id, uid, cancellable);
         
         // write out attachments, if any
@@ -1530,6 +1548,11 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         out Geary.Email.Field pre_fields, out Geary.Email.Field post_fields,
         out Gee.Collection<Contact> updated_contacts, ref int unread_count_change,
         bool associate_with_folder, Cancellable? cancellable) throws Error {
+        // If the email came from the Imap layer, we need to fill in the id.
+        ImapDB.EmailIdentifier email_id = (ImapDB.EmailIdentifier) email.id;
+        if (email_id.message_id == Db.INVALID_ROWID)
+            email_id.promote_with_message_id(location.message_id);
+
         int new_unread_count = 0;
         
         if (associate_with_folder) {

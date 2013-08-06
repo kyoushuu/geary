@@ -17,7 +17,8 @@
  */
 
 public abstract class Geary.EmailIdentifier : BaseObject, Gee.Hashable<Geary.EmailIdentifier> {
-    private int64 unique;
+    // Warning: only change this if you know what you are doing.
+    protected int64 unique;
     
     protected EmailIdentifier(int64 unique) {
         this.unique = unique;
