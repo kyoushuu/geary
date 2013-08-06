@@ -419,6 +419,9 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
     public async Gee.List<Geary.Email>? list_email_by_sparse_id_async(
         Gee.Collection<ImapDB.EmailIdentifier> ids, Geary.Email.Field required_fields, ListFlags flags,
         Cancellable? cancellable) throws Error {
+        if (ids.size == 0)
+            return null;
+        
         // Break up work so all reading isn't done in single transaction that locks up the
         // database ... first, gather locations of all emails in database
         Gee.List<LocationIdentifier>? locations = null;

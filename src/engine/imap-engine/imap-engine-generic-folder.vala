@@ -1053,8 +1053,9 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         Cancellable? cancellable = null) throws Error {
         check_open("mark_email_async");
         
-        replay_queue.schedule(new MarkEmail(this, to_mark, flags_to_add, flags_to_remove,
-            cancellable));
+        MarkEmail mark = new MarkEmail(this, to_mark, flags_to_add, flags_to_remove, cancellable);
+        replay_queue.schedule(mark);
+        yield mark.wait_for_ready_async(cancellable);
     }
 
     public virtual async void copy_email_async(Gee.List<Geary.EmailIdentifier> to_copy,
@@ -1062,7 +1063,9 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         check_open("copy_email_async");
         check_ids("copy_email_async", to_copy);
         
-        replay_queue.schedule(new CopyEmail(this, (Gee.List<ImapDB.EmailIdentifier>) to_copy, destination));
+        CopyEmail copy = new CopyEmail(this, (Gee.List<ImapDB.EmailIdentifier>) to_copy, destination);
+        replay_queue.schedule(copy);
+        yield copy.wait_for_ready_async(cancellable);
     }
 
     public virtual async void move_email_async(Gee.List<Geary.EmailIdentifier> to_move,
@@ -1070,7 +1073,9 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         check_open("move_email_async");
         check_ids("move_email_async", to_move);
         
-        replay_queue.schedule(new MoveEmail(this, (Gee.List<ImapDB.EmailIdentifier>) to_move, destination));
+        MoveEmail move = new MoveEmail(this, (Gee.List<ImapDB.EmailIdentifier>) to_move, destination);
+        replay_queue.schedule(move);
+        yield move.wait_for_ready_async(cancellable);
     }
     
     private void on_email_flags_changed(Gee.Map<Geary.EmailIdentifier, Geary.EmailFlags> changed) {

@@ -199,7 +199,7 @@ public class ConversationListStore : Gtk.ListStore {
             debug("Loading %d previews...", emails_needing_previews.size);
             emails = yield email_store.list_email_by_sparse_id_async(emails_needing_previews,
                 ConversationListStore.WITH_PREVIEW_FIELDS, flags, cancellable_folder);
-            debug("Loaded %d previews...", emails.size);
+            debug("Loaded %d previews...", emails_needing_previews.size);
         } catch (Error err) {
             // Ignore NOT_FOUND, as that's entirely possible when waiting for the remote to open
             if (!(err is Geary.EngineError.NOT_FOUND))

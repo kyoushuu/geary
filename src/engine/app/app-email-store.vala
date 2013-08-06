@@ -32,7 +32,8 @@ public class Geary.App.EmailStore : BaseObject {
         yield do_folder_operation_async(op,
             new Geary.Collection.SingleItem<Geary.EmailIdentifier>(email_id), cancellable);
         
-        assert(op.result != null);
+        if (op.result == null)
+            throw new EngineError.NOT_FOUND("Couldn't fetch email ID %s", email_id.to_string());
         return op.result;
     }
     
@@ -139,24 +140,16 @@ public class Geary.App.EmailStore : BaseObject {
             assert(ids.size > 0);
             
             bool open = false;
+            Gee.Collection<Geary.EmailIdentifier>? used_ids = null;
             try {
                 // TODO: in cases of local-only ops, avoid doing a full open?
                 yield folder.open_async(Geary.Folder.OpenFlags.NONE, cancellable);
                 open = true;
                 
-                Gee.Collection<Geary.EmailIdentifier> used_ids
-                    = yield operation.exec_async(folder, ids, cancellable);
+                used_ids = yield operation.exec_async(folder, ids, cancellable);
                 
                 yield folder.close_async(cancellable);
                 open = false;
-                
-                // We don't want to operate on any mails twice.
-                foreach (Geary.EmailIdentifier id in used_ids.to_array()) {
-                    foreach (Geary.FolderPath p in ids_to_folders.get(id))
-                        folders_to_ids.remove(p, id);
-                }
-                // And we don't want to operate on the same folder twice.
-                folders_to_ids.remove_all(path);
             } catch (Error e) {
                 debug("Error performing an operation on messages in %s: %s", folder.to_string(), e.message);
                 
@@ -169,6 +162,16 @@ public class Geary.App.EmailStore : BaseObject {
                     }
                 }
             }
+            
+            // We don't want to operate on any mails twice.
+            if (used_ids != null) {
+                foreach (Geary.EmailIdentifier id in used_ids.to_array()) {
+                    foreach (Geary.FolderPath p in ids_to_folders.get(id))
+                        folders_to_ids.remove(p, id);
+                }
+            }
+            // And we don't want to operate on the same folder twice.
+            folders_to_ids.remove_all(path);
         }
         
         if (folders_to_ids.size > 0)

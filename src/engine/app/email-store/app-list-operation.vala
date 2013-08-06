@@ -21,8 +21,10 @@ private class Geary.App.ListOperation : Geary.App.AsyncFolderOperation {
         Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
         Cancellable? cancellable) throws Error {
         // TODO: catch/ignore/save certain exceptions?
-        results.add_all(yield folder.list_email_by_sparse_id_async(
-            ids, required_fields, flags, cancellable));
+        Gee.List<Geary.Email>? list = yield folder.list_email_by_sparse_id_async(
+            ids, required_fields, flags, cancellable);
+        if (list != null)
+            results.add_all(list);
         return ids;
     }
 }
