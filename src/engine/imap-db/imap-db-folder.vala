@@ -908,10 +908,15 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         out bool associated, Cancellable? cancellable) throws Error {
         associated = false;
         
-        // See if it already exists; first by UID (which is only guaranteed to be unique in a folder,
-        // not account-wide)
-        LocationIdentifier? location = do_get_location_for_id(cx, (ImapDB.EmailIdentifier) email.id,
-            ListFlags.NONE,  cancellable);
+        LocationIdentifier? location = null;
+        ImapDB.EmailIdentifier email_id = (ImapDB.EmailIdentifier) email.id;
+        // See if it already exists; first by row id, then UID (which is only
+        // guaranteed to be unique in a folder, not account-wide)
+        if (email_id.message_id != Db.INVALID_ROWID)
+            location = do_get_location_for_id(cx, email_id, ListFlags.NONE, cancellable);
+        if (location == null && email_id.uid != null)
+            location = do_get_location_for_uid(cx, email_id.uid, ListFlags.NONE, cancellable);
+        
         if (location != null) {
             associated = true;
             
@@ -947,33 +952,31 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         stmt.bind_int64(1, rfc822_size);
         
         Db.Result results = stmt.exec(cancellable);
-        if (!results.finished) {
-            int64 message_id = results.rowid_at(0);
-            if (results.next(cancellable)) {
-                debug("Warning: multiple messages with the same internaldate (%s) and size (%lu) in %s",
-                    internaldate, rfc822_size, to_string());
-            }
-            
-            Db.Statement search_stmt = cx.prepare(
-                "SELECT ordering FROM MessageLocationTable WHERE message_id=? AND folder_id=?");
-            search_stmt.bind_rowid(0, message_id);
-            search_stmt.bind_rowid(1, folder_id);
-            
-            Db.Result search_results = search_stmt.exec(cancellable);
-            if (!search_results.finished) {
-                associated = true;
-                location = new LocationIdentifier(message_id, new Imap.UID(search_results.int64_at(0)));
-            } else {
-                ImapDB.EmailIdentifier email_id = (ImapDB.EmailIdentifier) email.id;
-                assert(email_id.uid != null);
-                location = new LocationIdentifier(message_id, email_id.uid);
-            }
-            
-            return location;
+        // no duplicates found
+        if (results.finished)
+            return null;
+        
+        int64 message_id = results.rowid_at(0);
+        if (results.next(cancellable)) {
+            debug("Warning: multiple messages with the same internaldate (%s) and size (%lu) in %s",
+                internaldate, rfc822_size, to_string());
         }
         
-        // no duplicates found
-        return null;
+        Db.Statement search_stmt = cx.prepare(
+            "SELECT ordering FROM MessageLocationTable WHERE message_id=? AND folder_id=?");
+        search_stmt.bind_rowid(0, message_id);
+        search_stmt.bind_rowid(1, folder_id);
+        
+        Db.Result search_results = search_stmt.exec(cancellable);
+        if (!search_results.finished) {
+            associated = true;
+            location = new LocationIdentifier(message_id, new Imap.UID(search_results.int64_at(0)));
+        } else {
+            assert(email_id.uid != null);
+            location = new LocationIdentifier(message_id, email_id.uid);
+        }
+        
+        return location;
     }
     
     // Note: does NOT check if message is already associated with thie folder

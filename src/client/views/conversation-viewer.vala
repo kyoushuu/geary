@@ -296,20 +296,19 @@ public class ConversationViewer : Gtk.Box {
     
     private async void select_conversation_async(Geary.App.Conversation conversation,
         Geary.Folder current_folder) throws Error {
-        Gee.Collection<Geary.Email> messages = conversation.get_emails(
-            Geary.App.Conversation.Ordering.DATE_ASCENDING);
-        
         // Load this once, so if it's cancelled, we cancel the WHOLE load.
         Cancellable cancellable = cancellable_fetch;
         
         // Fetch full messages.
-        Gee.Collection<Geary.Email> messages_to_add = new Gee.HashSet<Geary.Email>();
-        foreach (Geary.Email email in messages)
-            messages_to_add.add(yield fetch_full_message_async(email, cancellable));
+        Gee.Collection<Geary.Email>? messages_to_add
+            = yield list_full_messages_async(conversation.get_emails(
+            Geary.App.Conversation.Ordering.DATE_ASCENDING), cancellable);
         
         // Add messages.
-        foreach (Geary.Email email in messages_to_add)
-            add_message(email);
+        if (messages_to_add != null) {
+            foreach (Geary.Email email in messages_to_add)
+                add_message(email);
+        }
         
         if (current_folder is Geary.SearchFolder) {
             yield highlight_search_terms();
@@ -362,6 +361,20 @@ public class ConversationViewer : Gtk.Box {
         }
         
         web_view.set_highlight_text_matches(true);
+    }
+    
+    // Given some emails, fetch the full versions with all required fields.
+    private async Gee.Collection<Geary.Email>? list_full_messages_async(
+        Gee.Collection<Geary.Email> emails, Cancellable? cancellable) throws Error {
+        Geary.Email.Field required_fields = ConversationViewer.REQUIRED_FIELDS |
+            Geary.ComposedEmail.REQUIRED_REPLY_FIELDS;
+        
+        Gee.ArrayList<Geary.EmailIdentifier> ids = new Gee.ArrayList<Geary.EmailIdentifier>();
+        foreach (Geary.Email email in emails)
+            ids.add(email.id);
+        
+        return yield email_store.list_email_by_sparse_id_async(ids, required_fields,
+            Geary.Folder.ListFlags.NONE, cancellable);
     }
     
     // Given an email, fetch the full version with all required fields.
