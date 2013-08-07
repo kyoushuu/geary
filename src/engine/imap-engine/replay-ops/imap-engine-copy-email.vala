@@ -46,11 +46,12 @@ private class Geary.ImapEngine.CopyEmail : Geary.ImapEngine.SendReplayOperation 
     }
     
     public override async ReplayOperation.Status replay_remote_async() throws Error {
-        // query_local_writebehind_operation() may have removed all messages to copy
-        if (to_copy.size > 0) {
+        Gee.Set<Imap.UID>? uids = yield engine.local_folder.get_uids_async(to_copy,
+            ImapDB.Folder.ListFlags.NONE, cancellable);
+        
+        if (uids != null && uids.size > 0) {
             yield engine.remote_folder.copy_email_async(
-                new Imap.MessageSet.uid_sparse(ImapDB.EmailIdentifier.to_uids(to_copy).to_array()),
-                destination, cancellable);
+                new Imap.MessageSet.uid_sparse(uids.to_array()), destination, cancellable);
         }
         
         return ReplayOperation.Status.COMPLETED;

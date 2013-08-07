@@ -84,13 +84,13 @@ private class Geary.ImapEngine.MarkEmail : Geary.ImapEngine.SendReplayOperation 
     }
     
     public override async ReplayOperation.Status replay_remote_async() throws Error {
-        // potentially empty due to writebehind operation
-        if (original_flags.size == 0)
-            return ReplayOperation.Status.COMPLETED;
+        Gee.Set<Imap.UID>? uids = yield engine.local_folder.get_uids_async(original_flags.keys,
+            ImapDB.Folder.ListFlags.NONE, cancellable);
         
-        yield engine.remote_folder.mark_email_async(
-            new Imap.MessageSet.uid_sparse(ImapDB.EmailIdentifier.to_uids(original_flags.keys).to_array()),
-            flags_to_add, flags_to_remove, cancellable);
+        if (uids != null && uids.size > 0) {
+            yield engine.remote_folder.mark_email_async(
+                new Imap.MessageSet.uid_sparse(uids.to_array()), flags_to_add, flags_to_remove, cancellable);
+        }
         
         return ReplayOperation.Status.COMPLETED;
     }

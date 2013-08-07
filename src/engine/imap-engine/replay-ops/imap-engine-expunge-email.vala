@@ -71,12 +71,16 @@ private class Geary.ImapEngine.ExpungeEmail : Geary.ImapEngine.SendReplayOperati
     }
     
     public override async ReplayOperation.Status replay_remote_async() throws Error {
-        // Remove from server. Note that this causes the receive replay queue to kick into
-        // action, removing the e-mail but *NOT* firing a signal; the "remove marker" indicates
-        // that the signal has already been fired.
-        yield engine.remote_folder.remove_email_async(
-            new Imap.MessageSet.uid_sparse(ImapDB.EmailIdentifier.to_uids(removed_ids).to_array()),
-            cancellable);
+        Gee.Set<Imap.UID>? uids = yield engine.local_folder.get_uids_async(removed_ids,
+            ImapDB.Folder.ListFlags.NONE, cancellable);
+        
+        if (uids != null && uids.size > 0) {
+            // Remove from server. Note that this causes the receive replay queue to kick into
+            // action, removing the e-mail but *NOT* firing a signal; the "remove marker" indicates
+            // that the signal has already been fired.
+            yield engine.remote_folder.remove_email_async(
+                new Imap.MessageSet.uid_sparse(uids.to_array()), cancellable);
+        }
         
         return ReplayOperation.Status.COMPLETED;
     }
