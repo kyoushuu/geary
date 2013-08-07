@@ -1180,6 +1180,7 @@ public class GearyController : Geary.BaseObject {
 
     private void on_conversation_viewer_mark_message(Geary.Email message, Geary.EmailFlags? flags_to_add,
         Geary.EmailFlags? flags_to_remove) {
+        // TODO: fix this to use EmailStore
         Geary.FolderSupport.Mark? supports_mark = current_folder as Geary.FolderSupport.Mark;
         if (supports_mark == null)
             return;
@@ -1491,6 +1492,7 @@ public class GearyController : Geary.BaseObject {
     // one or the other in a folder.  This will try archiving first, then remove.
     private async void delete_messages(Gee.List<Geary.EmailIdentifier> ids, Cancellable? cancellable)
         throws Error {
+        // TODO: fix this to use EmailStore
         Geary.FolderSupport.Archive? supports_archive = current_folder as Geary.FolderSupport.Archive;
         if (supports_archive != null) {
             yield supports_archive.archive_email_async(ids, cancellable);
