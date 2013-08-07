@@ -903,18 +903,21 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
     }
     
     // Returns message_id if duplicate found, associated set to true if message is already associated
-    // with this folder
+    // with this folder.  Only call this on emails that came from the IMAP Folder.
     private LocationIdentifier? do_search_for_duplicates(Db.Connection cx, Geary.Email email,
         out bool associated, Cancellable? cancellable) throws Error {
         associated = false;
         
-        LocationIdentifier? location = null;
         ImapDB.EmailIdentifier email_id = (ImapDB.EmailIdentifier) email.id;
-        // See if it already exists; first by row id, then UID (which is only
-        // guaranteed to be unique in a folder, not account-wide)
-        if (email_id.message_id != Db.INVALID_ROWID)
-            location = do_get_location_for_id(cx, email_id, ListFlags.NONE, cancellable);
-        if (location == null && email_id.uid != null)
+        
+        // This should only ever get invoked for messages that came from the
+        // IMAP layer, which don't have a message id, but should have a UID.
+        assert(email_id.message_id == Db.INVALID_ROWID);
+        
+        LocationIdentifier? location = null;
+        // See if it already exists; first by UID (which is only guaranteed to
+        // be unique in a folder, not account-wide)
+        if (email_id.uid != null)
             location = do_get_location_for_uid(cx, email_id.uid, ListFlags.NONE, cancellable);
         
         if (location != null) {
