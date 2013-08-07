@@ -173,7 +173,7 @@ public class GearyController : Geary.BaseObject {
         main_window.conversation_viewer.reply_to_message.connect(on_reply_to_message);
         main_window.conversation_viewer.reply_all_message.connect(on_reply_all_message);
         main_window.conversation_viewer.forward_message.connect(on_forward_message);
-        main_window.conversation_viewer.mark_message.connect(on_conversation_viewer_mark_message);
+        main_window.conversation_viewer.mark_messages.connect(on_conversation_viewer_mark_messages);
         main_window.conversation_viewer.open_attachment.connect(on_open_attachment);
         main_window.conversation_viewer.save_attachments.connect(on_save_attachments);
 
@@ -1178,15 +1178,9 @@ public class GearyController : Geary.BaseObject {
             new Gee.ArrayList<Geary.EmailIdentifier>()), flags_to_add, flags_to_remove);
     }
 
-    private void on_conversation_viewer_mark_message(Geary.Email message, Geary.EmailFlags? flags_to_add,
-        Geary.EmailFlags? flags_to_remove) {
-        // TODO: fix this to use EmailStore
-        Geary.FolderSupport.Mark? supports_mark = current_folder as Geary.FolderSupport.Mark;
-        if (supports_mark == null)
-            return;
-        
-        supports_mark.mark_single_email_async.begin(message.id, flags_to_add, flags_to_remove,
-            cancellable_message);
+    private void on_conversation_viewer_mark_messages(Gee.Collection<Geary.EmailIdentifier> emails,
+        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove) {
+        mark_email(emails, flags_to_add, flags_to_remove);
     }
     
     private void on_mark_as_read() {
@@ -1492,7 +1486,6 @@ public class GearyController : Geary.BaseObject {
     // one or the other in a folder.  This will try archiving first, then remove.
     private async void delete_messages(Gee.List<Geary.EmailIdentifier> ids, Cancellable? cancellable)
         throws Error {
-        // TODO: fix this to use EmailStore
         Geary.FolderSupport.Archive? supports_archive = current_folder as Geary.FolderSupport.Archive;
         if (supports_archive != null) {
             yield supports_archive.archive_email_async(ids, cancellable);

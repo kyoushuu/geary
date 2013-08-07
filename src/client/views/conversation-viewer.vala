@@ -79,8 +79,9 @@ public class ConversationViewer : Gtk.Box {
     // Fired when the user clicks "forward" in the message menu.
     public signal void forward_message(Geary.Email message);
 
-    // Fired when the user marks a message.
-    public signal void mark_message(Geary.Email message, Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove);
+    // Fired when the user mark messages.
+    public signal void mark_messages(Gee.Collection<Geary.EmailIdentifier> emails,
+        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove);
 
     // Fired when the user opens an attachment.
     public signal void open_attachment(Geary.Attachment attachment);
@@ -1045,7 +1046,8 @@ public class ConversationViewer : Gtk.Box {
             if (message != null && !message.load_remote_images().is_certain()) {
                 Geary.EmailFlags flags = new Geary.EmailFlags();
                 flags.add(Geary.EmailFlags.LOAD_REMOTE_IMAGES);
-                mark_message(message, flags, null);
+                mark_messages(new Geary.Collection.SingleItem<Geary.EmailIdentifier>(
+                    message.id), flags, null);
             }
         }
     }
@@ -1234,14 +1236,14 @@ public class ConversationViewer : Gtk.Box {
     private void on_mark_read_message(Geary.Email message) {
         Geary.EmailFlags flags = new Geary.EmailFlags();
         flags.add(Geary.EmailFlags.UNREAD);
-        mark_message(message, null, flags);
+        mark_messages(new Geary.Collection.SingleItem<Geary.EmailIdentifier>(message.id), null, flags);
         mark_manual_read(message.id);
     }
 
     private void on_mark_unread_message(Geary.Email message) {
         Geary.EmailFlags flags = new Geary.EmailFlags();
         flags.add(Geary.EmailFlags.UNREAD);
-        mark_message(message, flags, null);
+        mark_messages(new Geary.Collection.SingleItem<Geary.EmailIdentifier>(message.id), flags, null);
         mark_manual_read(message.id);
     }
 
@@ -1269,13 +1271,13 @@ public class ConversationViewer : Gtk.Box {
     private void flag_message(Geary.Email email) {
         Geary.EmailFlags flags = new Geary.EmailFlags();
         flags.add(Geary.EmailFlags.FLAGGED);
-        mark_message(email, flags, null);
+        mark_messages(new Geary.Collection.SingleItem<Geary.EmailIdentifier>(email.id), flags, null);
     }
 
     private void unflag_message(Geary.Email email) {
         Geary.EmailFlags flags = new Geary.EmailFlags();
         flags.add(Geary.EmailFlags.FLAGGED);
-        mark_message(email, null, flags);
+        mark_messages(new Geary.Collection.SingleItem<Geary.EmailIdentifier>(email.id), null, flags);
     }
 
     private void show_attachment_menu(Geary.Email email, Geary.Attachment attachment) {
@@ -1719,7 +1721,7 @@ public class ConversationViewer : Gtk.Box {
     }
     
     public void mark_read() {
-        Gee.List<Geary.EmailIdentifier> ids = new Gee.ArrayList<Geary.EmailIdentifier>();
+        Gee.ArrayList<Geary.EmailIdentifier> emails = new Gee.ArrayList<Geary.EmailIdentifier>();
         WebKit.DOM.Document document = web_view.get_dom_document();
         long scroll_top = document.body.scroll_top;
         long scroll_height = document.document_element.scroll_height;
@@ -1732,7 +1734,7 @@ public class ConversationViewer : Gtk.Box {
                     if (!element.get_class_list().contains("manual_read") &&
                             body.offset_top + body.offset_height > scroll_top &&
                             body.offset_top + 28 < scroll_top + scroll_height) {  // 28 = 15 padding + 13 first line of text
-                        ids.add(message.id);
+                        emails.add(message.id);
                     }
                 }
             } catch (Error error) {
@@ -1740,12 +1742,10 @@ public class ConversationViewer : Gtk.Box {
             }
         }
 
-        // TODO: fix this to use EmailStore
-        Geary.FolderSupport.Mark? supports_mark = current_folder as Geary.FolderSupport.Mark;
-        if (supports_mark != null & ids.size > 0) {
+        if (emails.size > 0) {
             Geary.EmailFlags flags = new Geary.EmailFlags();
             flags.add(Geary.EmailFlags.UNREAD);
-            supports_mark.mark_email_async.begin(ids, null, flags, null);
+            mark_messages(emails, null, flags);
         }
     }
     
