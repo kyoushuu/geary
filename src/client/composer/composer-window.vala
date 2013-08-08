@@ -127,6 +127,9 @@ public class ComposerWindow : Gtk.Window {
     
     public ComposeType compose_type { get; private set; default = ComposeType.NEW_MESSAGE; }
     
+    // True if composer can't close immediately (i.e. it's saving a draft)
+    public bool delayed_close { get; private set; default = false; }
+    
     private string? body_html = null;
     private Gee.Set<File> attachment_files = new Gee.HashSet<File>(Geary.Files.nullable_hash,
         Geary.Files.nullable_equal);
@@ -646,15 +649,30 @@ public class ComposerWindow : Gtk.Window {
     }
     
     public bool should_close() {
-        // TODO: Check if the message was (automatically) saved
-        if (editor.can_undo()) {
-            present();
-            ConfirmationDialog dialog = new ConfirmationDialog(this,
+        if (!editor.can_undo())
+            return true;
+        
+        present();
+        AlertDialog dialog;
+        
+        if (drafts_folder == null) {
+            dialog = new ConfirmationDialog(this,
                 _("Do you want to discard the unsaved message?"), null, Gtk.Stock.DISCARD);
-            if (dialog.run() != Gtk.ResponseType.OK)
-                return false;
+        } else {
+            dialog = new TernaryConfirmationDialog(this,
+                _("Do you want to save this message to your drafts folder?"), null,
+                Gtk.Stock.SAVE, Gtk.Stock.DISCARD, Gtk.ResponseType.CLOSE);
         }
-        return true;
+        
+        Gtk.ResponseType response = dialog.run();
+        if (response == Gtk.ResponseType.CANCEL) {
+            return false; // Cancel
+        } else if (response == Gtk.ResponseType.OK) {
+            save_and_exit.begin(); // Save
+            return false;
+        } else {
+            return true; // Discard
+        }
     }
     
     public override bool delete_event(Gdk.EventAny event) {
@@ -801,6 +819,32 @@ public class ComposerWindow : Gtk.Window {
     private void on_save_completed() {
         actions.get_action(ACTION_SAVE).sensitive = true;
         actions.get_action(ACTION_SAVE).set_label(default_save_label);
+    }
+    
+    // Prevents user from editing anything.  Used while waiting for draft to save before exiting window.
+    private void make_gui_insensitive() {
+        // Disable all actions.
+        List<weak Gtk.Action> actions = actions.list_actions();
+        foreach (Gtk.Action a in actions)
+            a.sensitive = false;
+        
+        // Disable buttons.
+        discard_button.sensitive = send_button.sensitive = menu_button.sensitive = 
+            add_attachment_button.sensitive = pending_attachments_button.sensitive = false;
+        
+        // Disable editable widgets.
+        editor.sensitive = to_entry.sensitive = cc_entry.sensitive = bcc_entry.sensitive =
+            subject_entry.sensitive = from_multiple.sensitive = false;
+    }
+    
+    private async void save_and_exit() {
+        delayed_close = true;
+        make_gui_insensitive();
+        
+        // Do the save.
+        yield save_async();
+        
+        destroy();
     }
     
     private void on_add_attachment_button_clicked() {
