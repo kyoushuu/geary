@@ -23,7 +23,6 @@ private class Geary.App.MarkOperation : Geary.App.AsyncFolderOperation {
         
         Gee.List<Geary.EmailIdentifier> list
             = Geary.Collection.to_array_list<Geary.EmailIdentifier>(ids);
-        // TODO: catch/ignore/save certain exceptions?
         yield mark.mark_email_async(list, flags_to_add, flags_to_remove, cancellable);
         return ids;
     }

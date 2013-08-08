@@ -1084,7 +1084,6 @@ public class GearyController : Geary.BaseObject {
     private void mark_email(Gee.Collection<Geary.EmailIdentifier> ids,
         Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove) {
         if (ids.size > 0) {
-            // TODO: handle other accounts.
             email_stores.get(current_folder.account).mark_email_async.begin(
                 ids, flags_to_add, flags_to_remove, cancellable_message);
         }
@@ -1242,7 +1241,6 @@ public class GearyController : Geary.BaseObject {
     private void copy_email(Gee.Collection<Geary.EmailIdentifier> ids,
         Geary.FolderPath destination) {
         if (ids.size > 0) {
-            // TODO: handle other accounts.
             email_stores.get(current_folder.account).copy_email_async.begin(
                 ids, destination, cancellable_message);
         }
@@ -1255,7 +1253,6 @@ public class GearyController : Geary.BaseObject {
     private void move_email(Gee.Collection<Geary.EmailIdentifier> ids,
         Geary.FolderPath destination) {
         if (ids.size > 0) {
-            // TODO: handle other accounts.
             email_stores.get(current_folder.account).move_email_async.begin(
                 ids, current_folder.path, destination, cancellable_message);
         }

@@ -23,7 +23,6 @@ private class Geary.App.FetchOperation : Geary.App.AsyncFolderOperation {
         Geary.EmailIdentifier? id = Geary.Collection.get_first(ids);
         assert(id != null);
         
-        // TODO: catch/ignore/save certain exceptions?
         result = yield folder.fetch_email_async(
             id, required_fields, flags, cancellable);
         return new Geary.Collection.SingleItem<Geary.EmailIdentifier>(id);

@@ -24,7 +24,6 @@ private class Geary.App.MoveOperation : Geary.App.AsyncFolderOperation {
         
         Gee.List<Geary.EmailIdentifier> list
             = Geary.Collection.to_array_list<Geary.EmailIdentifier>(ids);
-        // TODO: catch/ignore/save certain exceptions?
         yield move.move_email_async(list, destination, cancellable);
         return ids;
     }

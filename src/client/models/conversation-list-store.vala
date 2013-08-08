@@ -18,7 +18,7 @@ public class ConversationListStore : Gtk.ListStore {
         public static Type[] get_types() {
             return {
                 typeof (FormattedConversationData), // CONVERSATION_DATA
-                typeof (Geary.App.Conversation)         // CONVERSATION_OBJECT
+                typeof (Geary.App.Conversation)     // CONVERSATION_OBJECT
             };
         }
         
