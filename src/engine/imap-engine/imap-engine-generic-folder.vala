@@ -799,9 +799,16 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
                 null);
             local_position = remote_position - (remote_count - local_count);
             
-            debug("do_replay_remove_message: local_count=%d local_position=%d", local_count, local_position);
-            
-            owned_id = yield local_folder.get_id_at_async(local_position, null);
+            // zero or negative means the message exists beyond the local vector's range, so
+            // nothing to do there
+            if (local_position > 0) {
+                debug("do_replay_remove_message: local_count=%d local_position=%d", local_count, local_position);
+                
+                owned_id = yield local_folder.get_id_at_async(local_position, null);
+            } else {
+                debug("do_replay_remove_message: message not stored locally (local_count=%d local_position=%d)",
+                    local_count, local_position);
+            }
         } catch (Error err) {
             debug("Unable to determine ID of removed message #%d from %s: %s", remote_position,
                 to_string(), err.message);
