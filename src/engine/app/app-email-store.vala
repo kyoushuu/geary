@@ -124,6 +124,8 @@ public class Geary.App.EmailStore : BaseObject {
         if (emails.size == 0)
             return;
         
+        debug("EmailStore running %s on %d emails", operation.get_type().name(), emails.size);
+        
         Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? ids_to_folders
             = yield account.get_containing_folders_async(emails, cancellable);
         Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids
@@ -140,14 +142,19 @@ public class Geary.App.EmailStore : BaseObject {
             bool open = false;
             Gee.Collection<Geary.EmailIdentifier>? used_ids = null;
             try {
-                // TODO: in cases of local-only ops, avoid doing a full open?
+                debug("EmailStore opening %s for %s on %d emails", folder.to_string(),
+                    operation.get_type().name(), ids.size);
+                
                 yield folder.open_async(Geary.Folder.OpenFlags.NONE, cancellable);
                 open = true;
                 
-                used_ids = yield operation.exec_async(folder, ids, cancellable);
+                used_ids = yield operation.execute_async(folder, ids, cancellable);
                 
                 yield folder.close_async(cancellable);
                 open = false;
+                
+                debug("EmailStore closed %s after %s on %d emails", folder.to_string(),
+                    operation.get_type().name(), ids.size);
             } catch (Error e) {
                 debug("Error performing an operation on messages in %s: %s", folder.to_string(), e.message);
                 
