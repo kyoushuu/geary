@@ -645,15 +645,14 @@ public class Geary.App.ConversationMonitor : BaseObject {
         
         Gee.Collection<Geary.App.Conversation> removed;
         Gee.MultiMap<Geary.App.Conversation, Geary.Email> trimmed;
-        conversations.remove_all_emails_by_identifier(removed_ids, out removed, out trimmed);
+        yield conversations.remove_emails_and_check_in_folder(removed_ids, folder.account,
+            folder.path, out removed, out trimmed, null);
         
         foreach (Conversation conversation in trimmed.get_keys())
             notify_conversation_trimmed(conversation, trimmed.get(conversation));
         
         foreach (Conversation conversation in removed)
             notify_conversation_removed(conversation);
-        
-        // TODO: call evaporate_conversations, send removed signal on any that got killed.
         
         // For any still-existing conversations that we've trimmed messages
         // from, do a search for any messages that should still be there due to

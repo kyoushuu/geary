@@ -245,17 +245,73 @@ private class Geary.App.ConversationSet : BaseObject {
         trimmed = _trimmed;
     }
     
-    public async Gee.Collection<Conversation> evaporate_conversations_async(
-        Gee.Collection<Conversation> candidates, Geary.Account account,
+    /**
+     * Make sure that the conversation has some emails in the given folder, and
+     * remove the conversation if not.  Return true if there were emails in the
+     * folder, or false if the conversation was removed.
+     */
+    public async bool check_conversation_in_folder_async(Conversation conversation, Geary.Account account,
         Geary.FolderPath required_folder_path, Cancellable? cancellable) throws Error {
+        if ((yield conversation.get_count_in_folder_async(account, required_folder_path, cancellable)) == 0) {
+            debug("Evaporating conversation %s because it has no emails in %s",
+                conversation.to_string(), required_folder_path.to_string());
+            remove_conversation(conversation);
+            
+            return false;
+        }
+        
+        return true;
+    }
+    
+    /**
+     * Check a set of emails using check_conversation_in_folder_async(), return
+     * the set of emails that were removed due to not being in the folder.
+     */
+    public async Gee.Collection<Conversation> check_conversations_in_folder(
+        Gee.Collection<Conversation> conversations, Geary.Account account,
+        Geary.FolderPath required_folder_path, Cancellable? cancellable) {
         Gee.ArrayList<Conversation> evaporated = new Gee.ArrayList<Conversation>();
-        foreach (Geary.App.Conversation conversation in candidates) {
-            if ((yield conversation.get_count_in_folder_async(account, required_folder_path, cancellable)) == 0) {
-                remove_conversation(conversation);
-                evaporated.add(conversation);
+        foreach (Geary.App.Conversation conversation in conversations) {
+            try {
+                if (!(yield check_conversation_in_folder_async(
+                    conversation, account, required_folder_path, cancellable))) {
+                    evaporated.add(conversation);
+                }
+            } catch (Error e) {
+                debug("Unable to check conversation %s for messages in %s: %s",
+                    conversation.to_string(), required_folder_path.to_string(), e.message);
             }
         }
         
         return evaporated;
+    }
+    
+    public async void remove_emails_and_check_in_folder(
+        Gee.Collection<Geary.EmailIdentifier> ids, Geary.Account account,
+        Geary.FolderPath required_folder_path, out Gee.Collection<Conversation> removed,
+        out Gee.MultiMap<Conversation, Geary.Email> trimmed, Cancellable? cancellable) {
+        Gee.HashSet<Conversation> _removed = new Gee.HashSet<Conversation>();
+        Gee.HashMultiMap<Conversation, Geary.Email> _trimmed
+            = new Gee.HashMultiMap<Conversation, Geary.Email>();
+        
+        Gee.Collection<Conversation> initial_removed;
+        Gee.MultiMap<Conversation, Geary.Email> initial_trimmed;
+        remove_all_emails_by_identifier(ids, out initial_removed, out initial_trimmed);
+        
+        Gee.Collection<Conversation> evaporated = yield check_conversations_in_folder(
+            initial_trimmed.get_keys(), account, required_folder_path, cancellable);
+        
+        _removed.add_all(initial_removed);
+        _removed.add_all(evaporated);
+        
+        foreach (Conversation conversation in initial_trimmed.get_keys()) {
+            if (!(conversation in _removed)) {
+                Geary.Collection.multi_map_set_all<Conversation, Geary.Email>(
+                    _trimmed, conversation, initial_trimmed.get(conversation));
+            }
+        }
+        
+        removed = _removed;
+        trimmed = _trimmed;
     }
 }
