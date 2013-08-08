@@ -15,7 +15,7 @@ private class Geary.App.MarkOperation : Geary.App.AsyncFolderOperation {
         this.flags_to_remove = flags_to_remove;
     }
     
-    public override async Gee.Collection<Geary.EmailIdentifier> exec_async(
+    public override async Gee.Collection<Geary.EmailIdentifier> execute_async(
         Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
         Cancellable? cancellable) throws Error {
         Geary.FolderSupport.Mark? mark = folder as Geary.FolderSupport.Mark;

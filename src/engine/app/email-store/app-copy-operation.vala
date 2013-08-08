@@ -13,7 +13,7 @@ private class Geary.App.CopyOperation : Geary.App.AsyncFolderOperation {
         this.destination = destination;
     }
     
-    public override async Gee.Collection<Geary.EmailIdentifier> exec_async(
+    public override async Gee.Collection<Geary.EmailIdentifier> execute_async(
         Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
         Cancellable? cancellable) throws Error {
         Geary.FolderSupport.Copy? copy = folder as Geary.FolderSupport.Copy;

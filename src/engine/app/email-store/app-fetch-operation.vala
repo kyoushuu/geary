@@ -16,7 +16,7 @@ private class Geary.App.FetchOperation : Geary.App.AsyncFolderOperation {
         this.flags = flags;
     }
     
-    public override async Gee.Collection<Geary.EmailIdentifier> exec_async(
+    public override async Gee.Collection<Geary.EmailIdentifier> execute_async(
         Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids,
         Cancellable? cancellable) throws Error {
         assert(result == null);

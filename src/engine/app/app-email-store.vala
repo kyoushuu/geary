@@ -74,7 +74,6 @@ public class Geary.App.EmailStore : BaseObject {
         Gee.HashMap<Geary.FolderPath, Geary.Folder> folders
             = new Gee.HashMap<Geary.FolderPath, Geary.Folder>();
         foreach (Geary.FolderPath path in paths) {
-            // TODO: can this be cached or something?
             Geary.Folder folder = yield account.fetch_folder_async(path, cancellable);
             folders.set(path, folder);
         }
@@ -102,7 +101,6 @@ public class Geary.App.EmailStore : BaseObject {
             if (count == 0)
                 continue;
             
-            // TODO: support REMOTE- or LOCAL-only here?
             if (folders.get(path).get_open_state() == Geary.Folder.OpenState.BOTH) {
                 if (!best_is_open) {
                     best_is_open = true;
