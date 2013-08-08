@@ -611,7 +611,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
             
             Db.Result results = stmt.exec(cancellable);
             if (!results.finished)
-                id = new ImapDB.EmailIdentifier(results.rowid_at(0), new Imap.UID(results.int64_at(1)));
+                id = new ImapDB.EmailIdentifier(results.rowid_at(1), new Imap.UID(results.int64_at(0)));
             
             return Db.TransactionOutcome.DONE;
         }, cancellable);
