@@ -48,7 +48,7 @@ abstract class AlertDialog : Object {
 
 class ConfirmationDialog : AlertDialog {
     public ConfirmationDialog(Gtk.Window? parent, string primary, string? secondary, string? ok_button) {
-        base (parent, Gtk.MessageType.WARNING, primary, secondary, ok_button, Gtk.Stock.CANCEL,
+        base (parent, Gtk.MessageType.WARNING, primary, secondary, ok_button, Stock._CANCEL,
             null, Gtk.ResponseType.NONE);
     }
 }
@@ -56,14 +56,14 @@ class ConfirmationDialog : AlertDialog {
 class TernaryConfirmationDialog : AlertDialog {
     public TernaryConfirmationDialog(Gtk.Window? parent, string primary, string? secondary,
         string? ok_button, string? tertiary_button, Gtk.ResponseType tertiary_response_type) {
-        base (parent, Gtk.MessageType.WARNING, primary, secondary, ok_button,  Gtk.Stock.CANCEL,
+        base (parent, Gtk.MessageType.WARNING, primary, secondary, ok_button,  Stock._CANCEL,
             tertiary_button, tertiary_response_type);
     }
 }
 
 class ErrorDialog : AlertDialog {
     public ErrorDialog(Gtk.Window? parent, string primary, string? secondary) {
-        base (parent, Gtk.MessageType.ERROR, primary, secondary, Gtk.Stock.OK, null, null,
+        base (parent, Gtk.MessageType.ERROR, primary, secondary, Stock._OK, null, null,
             Gtk.ResponseType.NONE);
     }
 }
