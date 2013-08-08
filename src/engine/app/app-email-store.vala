@@ -5,7 +5,7 @@
  */
 
 public class Geary.App.EmailStore : BaseObject {
-    public Geary.Account account { get; private set; }
+    public weak Geary.Account account { get; private set; }
     
     public EmailStore(Geary.Account account) {
         this.account = account;
