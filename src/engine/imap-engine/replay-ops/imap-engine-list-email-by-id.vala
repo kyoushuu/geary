@@ -33,8 +33,24 @@ private class Geary.ImapEngine.ListEmailByID : Geary.ImapEngine.AbstractListEmai
         Gee.ArrayList<Geary.Email> fulfilled = new Gee.ArrayList<Geary.Email>();
         if (list != null) {
             foreach (Geary.Email email in list) {
-                if (initial_id != null && email.id.equal_to(initial_id))
-                    initial_uid = ((ImapDB.EmailIdentifier) email.id).uid;
+                Imap.UID uid = ((ImapDB.EmailIdentifier) email.id).uid;
+                
+                // if INCLUDING_ID, then find the initial UID for the initial_id (if specified)
+                if (flags.is_including_id()) {
+                    if (initial_id != null && email.id.equal_to(initial_id))
+                        initial_uid = uid;
+                } else {
+                    // !INCLUDING_ID, so find the earliest UID (for oldest-to-newest) or latest
+                    // UID (newest-to-oldest)
+                    if (flags.is_oldest_to_newest()) {
+                        if (initial_uid == null || uid.compare_to(initial_uid) < 0)
+                            initial_uid = uid;
+                    } else {
+                        // newest-to-oldest
+                        if (initial_uid == null || uid.compare_to(initial_uid) > 0)
+                            initial_uid = uid;
+                    }
+                }
                 
                 if (email.fields.fulfills(required_fields))
                     fulfilled.add(email);
@@ -43,10 +59,19 @@ private class Geary.ImapEngine.ListEmailByID : Geary.ImapEngine.AbstractListEmai
             }
         }
         
-        // verify that the initial_id was found; if not, then want to get it from the remote
-        // (this will force a vector expansion, if required)
-        if (initial_id != null && initial_uid == null)
-            unfulfilled.set(required_fields | ImapDB.Folder.REQUIRED_FIELDS, initial_id);
+        // If INCLUDING_ID specified, verify that the initial_id was found; if not, then want to
+        // get it from the remote (this will force a vector expansion, if required)
+        if (flags.is_including_id()) {
+            if (initial_id != null && initial_uid == null) {
+                unfulfilled.set(required_fields | ImapDB.Folder.REQUIRED_FIELDS,
+                    initial_id);
+            }
+        } else {
+            // the initial uid should have been found if at least one Email was returned from the
+            // local list
+            if (list != null && list.size > 0)
+                assert(initial_uid != null);
+        }
         
         // report fulfilled items
         fulfilled_count = fulfilled.size;
