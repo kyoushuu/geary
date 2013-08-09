@@ -72,7 +72,7 @@ private class Geary.ImapEngine.ExpungeEmail : Geary.ImapEngine.SendReplayOperati
     
     public override async ReplayOperation.Status replay_remote_async() throws Error {
         Gee.Set<Imap.UID>? uids = yield engine.local_folder.get_uids_async(removed_ids,
-            ImapDB.Folder.ListFlags.NONE, cancellable);
+            ImapDB.Folder.ListFlags.INCLUDE_MARKED_FOR_REMOVE, cancellable);
         
         if (uids != null && uids.size > 0) {
             // Remove from server. Note that this causes the receive replay queue to kick into
