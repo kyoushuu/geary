@@ -124,7 +124,8 @@ public class Geary.App.EmailStore : BaseObject {
         if (emails.size == 0)
             return;
         
-        debug("EmailStore running %s on %d emails", operation.get_type().name(), emails.size);
+        debug("EmailStore %s running %s on %d emails", account.to_string(),
+            operation.get_type().name(), emails.size);
         
         Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? ids_to_folders
             = yield account.get_containing_folders_async(emails, cancellable);
@@ -179,7 +180,12 @@ public class Geary.App.EmailStore : BaseObject {
             folders_to_ids.remove_all(path);
         }
         
-        if (folders_to_ids.size > 0)
-            debug("Couldn't perform an operation on some messages in %s", account.to_string());
+        debug("EmailStore %s done running %s on %d emails", account.to_string(),
+            operation.get_type().name(), emails.size);
+        
+        if (folders_to_ids.size > 0) {
+            debug("Couldn't perform %s on some messages in %s", operation.get_type().name(),
+                account.to_string());
+        }
     }
 }
