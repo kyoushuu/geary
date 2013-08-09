@@ -27,7 +27,8 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         PARTIAL_OK,
         INCLUDE_MARKED_FOR_REMOVE,
         INCLUDING_ID,
-        OLDEST_TO_NEWEST;
+        OLDEST_TO_NEWEST,
+        ONLY_INCOMPLETE;
         
         public bool is_all_set(ListFlags flags) {
             return (this & flags) == flags;
@@ -265,6 +266,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         
         bool including_id = flags.is_all_set(ListFlags.INCLUDING_ID);
         bool oldest_to_newest = flags.is_all_set(ListFlags.OLDEST_TO_NEWEST);
+        bool only_incomplete = flags.is_all_set(ListFlags.ONLY_INCOMPLETE);
         
         // Break up work so all reading isn't done in single transaction that locks up the
         // database ... first, gather locations of all emails in database
@@ -293,24 +295,35 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
                 start_uid = new Imap.UID(Imap.UID.MAX);
             }
             
-            Db.Statement stmt;
-            if (oldest_to_newest) {
-                stmt = cx.prepare("""
-                    SELECT message_id, ordering
-                    FROM MessageLocationTable
-                    WHERE folder_id = ? AND ordering >= ?
-                    ORDER BY ordering ASC
-                    LIMIT ?
-                """);
-            } else {
-                stmt = cx.prepare("""
-                    SELECT message_id, ordering
-                    FROM MessageLocationTable
-                    WHERE folder_id = ? AND ordering <= ?
-                    ORDER BY ordering DESC
-                    LIMIT ?
+            StringBuilder sql = new StringBuilder("""
+                SELECT MessageLocationTable.message_id, ordering
+                FROM MessageLocationTable
+            """);
+            if (only_incomplete) {
+                sql.append("""
+                    INNER JOIN MessageTable
+                    ON MessageTable.id = MessageLocationTable.message_id
                 """);
             }
+            
+            sql.append("WHERE folder_id = ? ");
+            
+            if (oldest_to_newest)
+                sql.append("AND ordering >= ? ");
+            else
+                sql.append("AND ordering <= ? ");
+            
+            if (only_incomplete)
+                sql.append_printf("AND fields != %d ", Geary.Email.Field.ALL);
+            
+            if (oldest_to_newest)
+                sql.append("ORDER BY ordering ASC ");
+            else
+                sql.append("ORDER BY ordering DESC ");
+            
+            sql.append("LIMIT ?");
+            
+            Db.Statement stmt = cx.prepare(sql.str);
             stmt.bind_rowid(0, folder_id);
             stmt.bind_int64(1, start_uid.value);
             stmt.bind_int(2, count);
@@ -381,6 +394,7 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         Imap.UID end, Geary.Email.Field required_fields, ListFlags flags, Cancellable? cancellable)
         throws Error {
         bool including_id = flags.is_all_set(ListFlags.INCLUDING_ID);
+        bool only_incomplete = flags.is_all_set(ListFlags.ONLY_INCOMPLETE);
         
         Imap.UID start_uid = start;
         Imap.UID end_uid = end;
@@ -397,11 +411,23 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         // database ... first, gather locations of all emails in database
         Gee.List<LocationIdentifier>? locations = null;
         yield db.exec_transaction_async(Db.TransactionType.RO, (cx) => {
-            Db.Statement stmt = cx.prepare("""
-                SELECT message_id, ordering
+            StringBuilder sql = new StringBuilder("""
+                SELECT MessageLocationTable.message_id, ordering
                 FROM MessageLocationTable
-                WHERE folder_id = ? AND ordering >= ? AND ordering <= ?
             """);
+            
+            if (only_incomplete) {
+                sql.append("""
+                    INNER JOIN MessageTable
+                    ON MessageTable.id = MessageLocationTable.message_id
+                """);
+            }
+            
+            sql.append("WHERE folder_id = ? AND ordering >= ? AND ordering <= ? ");
+            if (only_incomplete)
+                sql.append_printf(" AND fields != %d ", Geary.Email.Field.ALL);
+            
+            Db.Statement stmt = cx.prepare(sql.str);
             stmt.bind_rowid(0, folder_id);
             stmt.bind_int64(1, start_uid.value);
             stmt.bind_int64(2, end_uid.value);
@@ -415,39 +441,50 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         return yield list_email_in_chunks_async(locations, required_fields, flags, cancellable);
     }
     
-    // ListFlags INCLUDING_ID and OLDEST_TO_NEWEST ignored
-    public async Gee.List<Geary.Email>? list_email_by_sparse_id_async(
-        Gee.Collection<ImapDB.EmailIdentifier> ids, Geary.Email.Field required_fields, ListFlags flags,
-        Cancellable? cancellable) throws Error {
+    public async Gee.List<Geary.Email>? list_email_by_sparse_id_async(Gee.Collection<ImapDB.EmailIdentifier> ids,
+        Geary.Email.Field required_fields, ListFlags flags, Cancellable? cancellable) throws Error {
         if (ids.size == 0)
             return null;
         
+        bool only_incomplete = flags.is_all_set(ListFlags.ONLY_INCOMPLETE);
+        
         // Break up work so all reading isn't done in single transaction that locks up the
         // database ... first, gather locations of all emails in database
-        Gee.List<LocationIdentifier>? locations = null;
+        Gee.List<LocationIdentifier> locations = new Gee.ArrayList<LocationIdentifier>();
         yield db.exec_transaction_async(Db.TransactionType.RO, (cx) => {
-            StringBuilder sql_ids = new StringBuilder("""
-                SELECT message_id, ordering
+            StringBuilder sql = new StringBuilder("""
+                SELECT MessageLocationTable.message_id, ordering
                 FROM MessageLocationTable
-                WHERE folder_id = ? AND (
             """);
             
-            // create SQL-formatted list of message_ids
-            for (int ctr = 0; ctr < ids.size; ctr++) {
-                if (ctr > 0)
-                    sql_ids.append(" OR ");
-                
-                sql_ids.append("message_id = ?");
+            if (only_incomplete) {
+                sql.append("""
+                    INNER JOIN MessageTable
+                    ON MessageTable.id = MessageLocationTable.message_id
+                """);
             }
-            sql_ids.append(")");
             
-            Db.Statement stmt = new Db.Statement(cx, sql_ids.str);
+            sql.append("WHERE folder_id = ? ");
+            if (only_incomplete)
+                sql.append_printf(" AND fields != %d ", Geary.Email.Field.ALL);
+            
+            sql.append("AND ordering IN (");
+            bool first = true;
+            foreach (ImapDB.EmailIdentifier id in ids) {
+                LocationIdentifier? location = do_get_location_for_id(cx, id, flags, cancellable);
+                if (location == null)
+                    continue;
+                
+                if (!first)
+                    sql.append(", ");
+                
+                sql.append(location.uid.to_string());
+                first = false;
+            }
+            sql.append(")");
+            
+            Db.Statement stmt = cx.prepare(sql.str);
             stmt.bind_rowid(0, folder_id);
-            
-            // add one to account for folder_id's position
-            int pos = 1;
-            foreach (ImapDB.EmailIdentifier id in ids)
-                stmt.bind_rowid(pos++, id.message_id);
             
             locations = do_results_to_locations(stmt.exec(cancellable), flags, cancellable);
             

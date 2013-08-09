@@ -26,29 +26,27 @@ private class Geary.ImapEngine.ListEmailBySparseID : Geary.ImapEngine.AbstractLi
         Gee.List<Geary.Email>? local_list = yield owner.local_folder.list_email_by_sparse_id_async(ids,
             required_fields, ImapDB.Folder.ListFlags.PARTIAL_OK, cancellable);
         
-        // turn into a map ... Geary.EmailSet would help with this
-        Gee.HashMap<Geary.EmailIdentifier, Geary.Email?> map = new Gee.HashMap<Geary.EmailIdentifier,
-            Geary.Email>();
-        if (local_list != null) {
-            foreach (Geary.Email email in local_list)
-                map.set(email.id, email);
-        }
-        
         // Build list of emails fully fetched from local store and table of remaining emails by
         // their lack of completeness
         Gee.List<Geary.Email> fulfilled = new Gee.ArrayList<Geary.Email>();
-        foreach (Geary.EmailIdentifier id in ids) {
-            Geary.Email? email = map.get(id);
+        if (local_list != null && local_list.size > 0) {
+            Gee.Map<Geary.EmailIdentifier, Geary.Email>? map = Email.emails_to_map(local_list);
+            assert(map != null);
             
-            // if completely unknown, make sure duplicate detection fields are included; otherwise,
-            // if known, then they were pulled down during folder normalization and during
-            // vector expansion
-            if (email == null)
-                unfulfilled.set(required_fields | ImapDB.Folder.REQUIRED_FIELDS, id);
-            else if (!email.fields.fulfills(required_fields))
-                unfulfilled.set(required_fields.clear(email.fields), id);
-            else
-                fulfilled.add(email);
+            // walk list of *requested* IDs to ensure that unknown are considering unfulfilled
+            foreach (Geary.EmailIdentifier id in ids) {
+                Geary.Email? email = map.get(id);
+            
+                // if completely unknown, make sure duplicate detection fields are included; otherwise,
+                // if known, then they were pulled down during folder normalization and during
+                // vector expansion
+                if (email == null)
+                    unfulfilled.set(required_fields | ImapDB.Folder.REQUIRED_FIELDS, id);
+                else if (!email.fields.fulfills(required_fields))
+                    unfulfilled.set(required_fields.clear(email.fields), id);
+                else
+                    fulfilled.add(email);
+            }
         }
         
         if (fulfilled.size > 0) {

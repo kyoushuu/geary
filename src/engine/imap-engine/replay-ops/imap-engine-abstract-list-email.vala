@@ -230,6 +230,7 @@ private abstract class Geary.ImapEngine.AbstractListEmail : Geary.ImapEngine.Sen
             // merely count backwards from the top of the vector
             if (initial_uid == null || local_count == 0) {
                 low_pos = new Imap.SequenceNumber(Numeric.int_floor((remote_count - count) + 1, 1));
+                
                 // don't set high_pos, leave null to use symbolic "highest" in MessageSet
                 high_pos = null;
             } else {
@@ -257,13 +258,17 @@ private abstract class Geary.ImapEngine.AbstractListEmail : Geary.ImapEngine.Sen
         }
         
         Imap.MessageSet msg_set;
-        if (high_pos != null)
+        int actual_count = -1;
+        if (high_pos != null) {
             msg_set = new Imap.MessageSet.range_by_first_last(low_pos, high_pos);
-        else
+            actual_count = (high_pos.value - low_pos.value) + 1;
+        } else {
             msg_set = new Imap.MessageSet.range_to_highest(low_pos);
+        }
         
-        debug("%s: Performing vector expansion using %s for %s/%u", owner.to_string(), msg_set.to_string(),
-            (initial_uid != null) ? initial_uid.to_string() : "(null)", count);
+        debug("%s: Performing vector expansion using %s for initial_uid=%s count=%d actual_count=%d",
+            owner.to_string(), msg_set.to_string(),
+            (initial_uid != null) ? initial_uid.to_string() : "(null)", count, actual_count);
         
         Gee.List<Geary.Email>? list = yield owner.remote_folder.list_email_async(msg_set,
             Geary.Email.Field.NONE, cancellable);
