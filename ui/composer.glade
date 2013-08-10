@@ -128,6 +128,11 @@
       <accelerator key="w" modifiers="GDK_CONTROL_MASK"/>
     </child>
   </object>
+  <object class="GtkArrow" id="menu arrow">
+    <property name="visible">True</property>
+    <property name="can_focus">False</property>
+    <property name="arrow_type">down</property>
+  </object>
   <object class="GtkBox" id="composer">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
@@ -638,6 +643,7 @@
             <property name="expand">False</property>
             <property name="fill">False</property>
             <property name="position">0</property>
+            <property name="non_homogeneous">True</property>
           </packing>
         </child>
         <child>
@@ -654,6 +660,7 @@
             <property name="expand">False</property>
             <property name="fill">False</property>
             <property name="position">1</property>
+            <property name="non_homogeneous">True</property>
           </packing>
         </child>
         <child>
@@ -666,6 +673,7 @@
             <property name="expand">False</property>
             <property name="fill">True</property>
             <property name="position">2</property>
+            <property name="non_homogeneous">True</property>
           </packing>
         </child>
         <child>
@@ -683,6 +691,7 @@
             <property name="pack_type">end</property>
             <property name="position">3</property>
             <property name="secondary">True</property>
+            <property name="non_homogeneous">True</property>
           </packing>
         </child>
         <child>
@@ -700,6 +709,7 @@
             <property name="pack_type">end</property>
             <property name="position">4</property>
             <property name="secondary">True</property>
+            <property name="non_homogeneous">True</property>
           </packing>
         </child>
       </object>
@@ -709,10 +719,5 @@
         <property name="position">6</property>
       </packing>
     </child>
-  </object>
-  <object class="GtkArrow" id="menu arrow">
-    <property name="visible">True</property>
-    <property name="can_focus">False</property>
-    <property name="arrow_type">down</property>
   </object>
 </interface>
