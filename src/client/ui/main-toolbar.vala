@@ -14,8 +14,8 @@ public class MainToolbar : Gtk.Box {
     public FolderMenu move_folder_menu { get; private set; }
     public string search_text { get { return search_entry.text; } }
     
-    private GtkUtil.ToggleToolbarDropdown mark_menu_dropdown;
-    private GtkUtil.ToggleToolbarDropdown app_menu_dropdown;
+    //private GtkUtil.ToggleToolbarDropdown mark_menu_dropdown;
+    //private GtkUtil.ToggleToolbarDropdown app_menu_dropdown;
     private Gtk.ToolItem search_container;
     private Gtk.Entry search_entry;
     private Geary.ProgressMonitor? search_upgrade_progress_monitor = null;
@@ -28,8 +28,54 @@ public class MainToolbar : Gtk.Box {
         
         GearyApplication.instance.controller.account_selected.connect(on_account_changed);
         
-        Gtk.Builder builder = GearyApplication.instance.create_builder("toolbar.glade");
-        toolbar = builder.get_object("toolbar") as Gtk.Toolbar;
+        //Gtk.Builder builder = GearyApplication.instance.create_builder("toolbar.glade");
+        //toolbar = builder.get_object("toolbar") as Gtk.Toolbar;
+        
+        toolbar = new Gtk.Toolbar();
+
+        Gee.List<Gtk.Button> insert = new Gee.ArrayList<Gtk.Button>();
+        
+        // Compose.
+        insert.add(create_toolbar_button(_("Compose"), _("Start new conversation (Ctrl+N, N)"),
+            "mail-message-new", GearyController.ACTION_NEW_MESSAGE));
+        toolbar.add(create_pill_buttons(insert));
+        
+        // Reply buttons
+        insert.clear();
+        insert.add(create_toolbar_button("", _("Reply to last message in conversation (Ctrl+R, R)"), 
+            "mail-reply-sender", GearyController.ACTION_REPLY_TO_MESSAGE));
+        insert.add(create_toolbar_button("", _("Reply to everyone in last message of conversation (Ctrl+Shift+R, Shift+R)"), 
+            "mail-reply-all", GearyController.ACTION_REPLY_ALL_MESSAGE));
+        insert.add(create_toolbar_button("", _("Send copy of last message in conversation (Ctrl+L, F)"),
+            "mail-forward", GearyController.ACTION_FORWARD_MESSAGE));
+        toolbar.add(create_pill_buttons(insert));
+        
+        
+        // Assemble mark menu button.
+        GearyApplication.instance.load_ui_file("toolbar_mark_menu.ui");
+        Gtk.Menu mark_menu = GearyApplication.instance.ui_manager.get_widget("/ui/ToolbarMarkMenu")
+            as Gtk.Menu;
+        Gtk.Menu mark_proxy_menu = (Gtk.Menu) GearyApplication.instance.ui_manager
+            .get_widget("/ui/ToolbarMarkMenuProxy");
+        Gtk.ToggleToolButton mark_menu_button = set_toolbutton_action(builder,
+            GearyController.ACTION_MARK_AS_MENU) as Gtk.ToggleToolButton;
+        mark_menu_dropdown = new GtkUtil.ToggleToolbarDropdown(
+            IconFactory.instance.get_custom_icon("edit-mark", IconFactory.ICON_TOOLBAR),
+            Gtk.IconSize.LARGE_TOOLBAR, mark_menu, mark_proxy_menu);
+        mark_menu_dropdown.attach(mark_menu_button);
+        
+        // Ensure that shortcut keys are drawn in the mark menu
+        mark_menu.foreach(GtkUtil.show_menuitem_accel_labels);
+        
+        copy_folder_menu = new FolderMenu(
+            IconFactory.instance.get_custom_icon("tag-new", IconFactory.ICON_TOOLBAR),
+            Gtk.IconSize.LARGE_TOOLBAR, null, null);
+        
+        move_folder_menu = new FolderMenu(
+            IconFactory.instance.get_custom_icon("mail-move", IconFactory.ICON_TOOLBAR),
+            Gtk.IconSize.LARGE_TOOLBAR, null, null);
+        
+        /*
 
         // Setup each of the normal toolbar buttons.
         set_toolbutton_action(builder, GearyController.ACTION_NEW_MESSAGE);
@@ -97,25 +143,27 @@ public class MainToolbar : Gtk.Box {
         app_menu_dropdown.show_arrow = false;
         app_menu_dropdown.attach(app_menu_button);
         
-        toolbar.get_style_context().add_class("primary-toolbar");
+        */
         
-        search_upgrade_progress_bar.show_text = true;
-        search_upgrade_progress_bar.margin_top = search_upgrade_progress_bar.margin_bottom = 3;
+       // toolbar.get_style_context().add_class("primary-toolbar");
+        
+//        search_upgrade_progress_bar.show_text = true;
+//        search_upgrade_progress_bar.margin_top = search_upgrade_progress_bar.margin_bottom = 3;
         
         add(toolbar);
-        set_search_placeholder_text(DEFAULT_SEARCH_TEXT);
+      //  set_search_placeholder_text(DEFAULT_SEARCH_TEXT);
     }
     
-    private Gtk.ToolButton set_toolbutton_action(Gtk.Builder builder, string action,
-        bool use_action_appearance = false) {
-        Gtk.ToolButton button = builder.get_object(action) as Gtk.ToolButton;
-        
-        // Must manually set use_action_appearance to false until Glade re-adds this feature.
-        // See this ticket: https://bugzilla.gnome.org/show_bug.cgi?id=694407#c11
-        button.use_action_appearance = use_action_appearance;
-        button.set_related_action(GearyApplication.instance.actions.get_action(action));
-        return button;
-    }
+//    private Gtk.ToolButton set_toolbutton_action(Gtk.Builder builder, string action,
+//        bool use_action_appearance = false) {
+//        Gtk.ToolButton button = builder.get_object(action) as Gtk.ToolButton;
+//        
+//        // Must manually set use_action_appearance to false until Glade re-adds this feature.
+//        // See this ticket: https://bugzilla.gnome.org/show_bug.cgi?id=694407#c11
+//        button.use_action_appearance = use_action_appearance;
+//        button.set_related_action(GearyApplication.instance.actions.get_action(action));
+//        return button;
+//    }
     
     public void set_search_text(string text) {
         search_entry.text = text;
@@ -125,24 +173,24 @@ public class MainToolbar : Gtk.Box {
         search_entry.placeholder_text = placeholder;
     }
     
-    private void on_search_entry_changed() {
-        search_text_changed(search_entry.text);
-        // Enable/disable clear button.
-        search_entry.secondary_icon_name = search_entry.text != "" ? ICON_CLEAR_NAME : null;
-    }
-    
-    private void on_search_entry_icon_release(Gtk.EntryIconPosition icon_pos, Gdk.Event event) {
-        if (icon_pos == Gtk.EntryIconPosition.SECONDARY)
-            search_entry.text = "";
-    }
-    
-    private bool on_search_key_press(Gdk.EventKey event) {
-        // Clear box if user hits escape.
-        if (Gdk.keyval_name(event.keyval) == "Escape")
-            search_entry.text = "";
-        
-        return false;
-    }
+//    private void on_search_entry_changed() {
+//        search_text_changed(search_entry.text);
+//        // Enable/disable clear button.
+//        search_entry.secondary_icon_name = search_entry.text != "" ? ICON_CLEAR_NAME : null;
+//    }
+//    
+//    private void on_search_entry_icon_release(Gtk.EntryIconPosition icon_pos, Gdk.Event event) {
+//        if (icon_pos == Gtk.EntryIconPosition.SECONDARY)
+//            search_entry.text = "";
+//    }
+//    
+//    private bool on_search_key_press(Gdk.EventKey event) {
+//        // Clear box if user hits escape.
+//        if (Gdk.keyval_name(event.keyval) == "Escape")
+//            search_entry.text = "";
+//        
+//        return false;
+//    }
     
     private void on_search_upgrade_start() {
         search_container.remove(search_container.get_child());
@@ -151,8 +199,8 @@ public class MainToolbar : Gtk.Box {
     }
     
     private void on_search_upgrade_finished() {
-        search_container.remove(search_container.get_child());
-        search_container.add(search_entry);
+        //search_container.remove(search_container.get_child());
+        //search_container.add(search_entry);
     }
     
     private void on_account_changed(Geary.Account? account) {
@@ -178,6 +226,33 @@ public class MainToolbar : Gtk.Box {
         
         set_search_placeholder_text(account == null || GearyApplication.instance.controller.get_num_accounts() == 1 ?
              DEFAULT_SEARCH_TEXT : _("Search %s account").printf(account.information.nickname));
+    }
+    
+    private Gtk.Button create_toolbar_button(string label, string tooltip, string icon_name,
+        string? action_name = null) {
+        Gtk.Button b = new Gtk.Button.with_label(label);
+        b.image = new Gtk.Image.from_icon_name(icon_name, Gtk.IconSize.BUTTON);
+        b.always_show_image = true;
+        b.tooltip_text = tooltip;
+        
+        if (action_name != null)
+            b.set_action_name(action_name);
+        
+        return b;
+    }
+    
+    private Gtk.ToolItem create_pill_buttons(Gee.Collection<Gtk.Button> buttons) {
+        Gtk.Box box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+        box.get_style_context().add_class(Gtk.STYLE_CLASS_RAISED);
+        box.get_style_context().add_class(Gtk.STYLE_CLASS_LINKED);
+        
+        foreach(Gtk.Button button in buttons)
+            box.add(button);
+        
+        Gtk.ToolItem tool_item = new Gtk.ToolItem();
+        tool_item.add(box);
+        
+        return tool_item;
     }
 }
 
