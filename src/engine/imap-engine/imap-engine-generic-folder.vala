@@ -1029,7 +1029,11 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         check_open("expunge_email_async");
         check_ids("expunge_email_async", email_ids);
         
-        replay_queue.schedule(new ExpungeEmail(this, (Gee.List<ImapDB.EmailIdentifier>) email_ids, cancellable));
+        ExpungeEmail expunge = new ExpungeEmail(this, (Gee.List<ImapDB.EmailIdentifier>) email_ids,
+            cancellable);
+        replay_queue.schedule(expunge);
+        
+        yield expunge.wait_for_ready_async(cancellable);
     }
     
     private void check_open(string method) throws EngineError {
