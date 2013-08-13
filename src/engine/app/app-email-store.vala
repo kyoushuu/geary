@@ -146,7 +146,7 @@ public class Geary.App.EmailStore : BaseObject {
                 debug("EmailStore opening %s for %s on %d emails", folder.to_string(),
                     operation.get_type().name(), ids.size);
                 
-                yield folder.open_async(Geary.Folder.OpenFlags.NONE, cancellable);
+                yield folder.open_async(Geary.Folder.OpenFlags.FAST_OPEN, cancellable);
                 open = true;
                 
                 used_ids = yield operation.execute_async(folder, ids, cancellable);

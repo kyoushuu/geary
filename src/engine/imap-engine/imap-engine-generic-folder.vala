@@ -40,7 +40,9 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
     private Geary.AggregatedFolderProperties _properties = new Geary.AggregatedFolderProperties();
     private Imap.Account remote;
     private ImapDB.Account local;
+    private Folder.OpenFlags open_flags = OpenFlags.NONE;
     private int open_count = 0;
+    private bool remote_opened = false;
     private Nonblocking.ReportingSemaphore<bool>? remote_semaphore = null;
     private ReplayQueue? replay_queue = null;
     private int remote_count = -1;
@@ -481,6 +483,15 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         if (open_count == 0 || remote_semaphore == null)
             throw new EngineError.OPEN_REQUIRED("wait_for_open_async() can only be called after open_async()");
         
+        // if remote has not yet been opened, do it now ... this bool can go true only once after
+        // an open_async, it's reset at close time
+        if (!remote_opened) {
+            debug("wait_for_open_async %s: opening remote on demand...", to_string());
+            
+            remote_opened = true;
+            open_remote_async.begin(open_flags, null);
+        }
+        
         if (!yield remote_semaphore.wait_for_result_async(cancellable))
             throw new EngineError.ALREADY_CLOSED("%s failed to open", to_string());
     }
@@ -493,28 +504,30 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
             return false;
         }
         
+        this.open_flags = open_flags;
         remote_semaphore = new Geary.Nonblocking.ReportingSemaphore<bool>(false);
         
         // start the replay queue
-        replay_queue = new ReplayQueue(path.to_string(), remote_semaphore);
+        replay_queue = new ReplayQueue(this);
         
         // reset state in the local (database) folder
         local_folder.reset();
         
-        // Rather than wait for the remote folder to open (which blocks completion of this method),
-        // attempt to open in the background and treat this folder as "opened".  If the remote
-        // doesn't open, this folder remains open but only able to work with the local cache.
-        //
-        // Note that any use of remote_folder in this class should first call
-        // wait_for_remote_ready_async(), which uses a NonblockingSemaphore to indicate that the remote
-        // is open (or has failed to open).  This allows for early calls to list and fetch emails
-        // can work out of the local cache until the remote is ready.
-        open_remote_async.begin(open_flags, cancellable);
+        // do NOT open the remote side here; wait for the ReplayQueue to require a remote connection
+        // or wait_for_open_async() to be called ... this allows for fast local-only operations
+        // to occur, local-only either because (a) the folder has all the information required
+        // (for a list or fetch operation), or (b) the operation was de facto local-only.
+        // In particular, EmailStore will open and close lots of folders, causing a lot of
+        // connection setup and teardown
         
         return true;
     }
     
     private async void open_remote_async(Geary.Folder.OpenFlags open_flags, Cancellable? cancellable) {
+        // watch for folder closing before this call got a chance to execute
+        if (open_count == 0)
+            return;
+        
         try {
             debug("Fetching information for remote folder %s", to_string());
             Imap.Folder folder = yield remote.fetch_folder_async(local_folder.get_path(),
@@ -665,6 +678,7 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         }
         
         replay_queue = null;
+        remote_opened = false;
         
         notify_closed(CloseReason.FOLDER_CLOSED);
         
