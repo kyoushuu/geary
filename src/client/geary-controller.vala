@@ -1549,12 +1549,8 @@ public class GearyController : Geary.BaseObject {
         // Mutliple message buttons.
         GearyApplication.instance.actions.get_action(ACTION_DELETE_MESSAGE).sensitive =
             (current_folder is Geary.FolderSupport.Remove) || (current_folder is Geary.FolderSupport.Archive);
-        GearyApplication.instance.actions.get_action(ACTION_MARK_AS_MENU).sensitive =
-            current_folder is Geary.FolderSupport.Mark;
-        GearyApplication.instance.actions.get_action(ACTION_COPY_MENU).sensitive =
-            current_folder is Geary.FolderSupport.Copy;
-        GearyApplication.instance.actions.get_action(ACTION_MOVE_MENU).sensitive =
-            current_folder is Geary.FolderSupport.Move;
+        
+        enable_context_dependent_buttons_async.begin(true, null);
     }
 
     // Enables or disables the message buttons on the toolbar.
@@ -1566,12 +1562,32 @@ public class GearyController : Geary.BaseObject {
         GearyApplication.instance.actions.get_action(ACTION_FORWARD_MESSAGE).sensitive = sensitive;
         GearyApplication.instance.actions.get_action(ACTION_DELETE_MESSAGE).sensitive = sensitive
             && ((current_folder is Geary.FolderSupport.Remove) || (current_folder is Geary.FolderSupport.Archive));
+        
+        enable_context_dependent_buttons_async.begin(sensitive, null);
+    }
+    
+    private async void enable_context_dependent_buttons_async(bool sensitive, Cancellable? cancellable) {
+        Gee.MultiMap<Geary.EmailIdentifier, Type>? selected_operations = null;
+        try {
+            if (current_folder != null) {
+                selected_operations = yield email_stores.get(current_folder.account)
+                    .get_supported_operations_async(get_selected_email_ids(false), cancellable);
+            }
+        } catch (Error e) {
+            debug("Error checking for what operations are supported in the selected conversations: %s",
+                e.message);
+        }
+        
+        Gee.HashSet<Type> supported_operations = new Gee.HashSet<Type>();
+        if (selected_operations != null)
+            supported_operations.add_all(selected_operations.get_values());
+        
         GearyApplication.instance.actions.get_action(ACTION_MARK_AS_MENU).sensitive =
-            sensitive && (current_folder is Geary.FolderSupport.Mark);
+            sensitive && (supported_operations.contains(typeof(Geary.FolderSupport.Mark)));
         GearyApplication.instance.actions.get_action(ACTION_COPY_MENU).sensitive =
-            sensitive && (current_folder is Geary.FolderSupport.Copy);
+            sensitive && (supported_operations.contains(typeof(Geary.FolderSupport.Copy)));
         GearyApplication.instance.actions.get_action(ACTION_MOVE_MENU).sensitive =
-            sensitive && (current_folder is Geary.FolderSupport.Move);
+            sensitive && (supported_operations.contains(typeof(Geary.FolderSupport.Move)));
     }
     
     // Updates tooltip text depending on number of conversations selected.

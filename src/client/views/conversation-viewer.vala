@@ -326,7 +326,6 @@ public class ConversationViewer : Gtk.Box {
         try {
             select_conversation_async.end(result);
             
-            GearyApplication.instance.controller.enable_message_buttons(true);
             mark_read();
         } catch (Error err) {
             debug("Unable to select conversation: %s", err.message);
