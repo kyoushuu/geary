@@ -73,7 +73,6 @@ public class GearyController : Geary.BaseObject {
         = new Gee.HashMap<Geary.Account, Geary.Folder>();
     private Geary.Folder? current_folder = null;
     private Cancellable cancellable_folder = new Cancellable();
-    private Cancellable cancellable_message = new Cancellable();
     private Cancellable cancellable_search = new Cancellable();
     private Cancellable cancellable_open_account = new Cancellable();
     private Gee.HashMap<Geary.Account, Cancellable> inbox_cancellables
@@ -602,10 +601,8 @@ public class GearyController : Geary.BaseObject {
         
         previous_non_search_folder = null;
         main_window.main_toolbar.set_search_text(""); // Reset search.
-        if (current_account == account) {
+        if (current_account == account)
             cancel_folder();
-            cancel_message();
-        }
         
         account.folders_available_unavailable.disconnect(on_folders_available_unavailable);
         
@@ -866,8 +863,6 @@ public class GearyController : Geary.BaseObject {
     }
     
     private void on_conversations_selected(Gee.Set<Geary.App.Conversation> selected) {
-        cancel_message();
-        
         selected_conversations = selected;
         conversations_selected(selected_conversations, current_folder);
     }
@@ -957,7 +952,6 @@ public class GearyController : Geary.BaseObject {
     private void cancel_folder() {
         Cancellable old_cancellable = cancellable_folder;
         cancellable_folder = new Cancellable();
-        cancel_message();
         
         old_cancellable.cancel();
     }
@@ -971,13 +965,6 @@ public class GearyController : Geary.BaseObject {
         Cancellable old_cancellable = inbox_cancellables.get(account);
         inbox_cancellables.set(account, new Cancellable());
 
-        old_cancellable.cancel();
-    }
-    
-    private void cancel_message() {
-        Cancellable old_cancellable = cancellable_message;
-        cancellable_message = new Cancellable();
-        
         old_cancellable.cancel();
     }
     
@@ -1085,7 +1072,7 @@ public class GearyController : Geary.BaseObject {
         Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove) {
         if (ids.size > 0) {
             email_stores.get(current_folder.account).mark_email_async.begin(
-                ids, flags_to_add, flags_to_remove, cancellable_message);
+                ids, flags_to_add, flags_to_remove, cancellable_folder);
         }
     }
     
@@ -1242,7 +1229,7 @@ public class GearyController : Geary.BaseObject {
         Geary.FolderPath destination) {
         if (ids.size > 0) {
             email_stores.get(current_folder.account).copy_email_async.begin(
-                ids, destination, cancellable_message);
+                ids, destination, cancellable_folder);
         }
     }
     
@@ -1254,7 +1241,7 @@ public class GearyController : Geary.BaseObject {
         Geary.FolderPath destination) {
         if (ids.size > 0) {
             email_stores.get(current_folder.account).move_email_async.begin(
-                ids, current_folder.path, destination, cancellable_message);
+                ids, current_folder.path, destination, cancellable_folder);
         }
     }
     
