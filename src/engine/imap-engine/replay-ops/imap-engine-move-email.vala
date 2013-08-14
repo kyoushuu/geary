@@ -73,13 +73,9 @@ private class Geary.ImapEngine.MoveEmail : Geary.ImapEngine.SendReplayOperation 
     }
     
     public override async ReplayOperation.Status replay_remote_async() throws Error {
-        Gee.Set<Imap.UID>? uids = yield engine.local_folder.get_uids_async(moved_ids,
-            ImapDB.Folder.ListFlags.NONE, cancellable);
-        
-        if (uids != null && uids.size > 0) {
-            yield engine.remote_folder.move_email_async(
-                new Imap.MessageSet.uid_sparse(uids.to_array()), destination, cancellable);
-        }
+        yield engine.remote_folder.move_email_async(
+            new Imap.MessageSet.uid_sparse(ImapDB.EmailIdentifier.to_uids(moved_ids).to_array()),
+            destination, cancellable);
         
         return ReplayOperation.Status.COMPLETED;
     }
