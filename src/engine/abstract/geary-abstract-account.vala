@@ -44,6 +44,11 @@ public abstract class Geary.AbstractAccount : BaseObject, Geary.Account {
         email_locally_complete(folder, ids);
     }
     
+    protected virtual void notify_email_flags_changed(Geary.Folder folder,
+        Gee.Map<Geary.EmailIdentifier, Geary.EmailFlags> flag_map) {
+        email_flags_changed(folder, flag_map);
+    }
+    
     protected virtual void notify_opened() {
         opened();
     }

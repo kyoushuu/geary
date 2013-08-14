@@ -52,6 +52,7 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
                 folder.email_appended.connect(on_folder_email_appended);
                 folder.email_removed.connect(on_folder_email_removed);
                 folder.email_locally_complete.connect(on_folder_email_locally_complete);
+                folder.email_flags_changed.connect(on_folder_email_flags_changed);
             }
         }
         if (unavailable != null) {
@@ -59,6 +60,7 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
                 folder.email_appended.disconnect(on_folder_email_appended);
                 folder.email_removed.disconnect(on_folder_email_removed);
                 folder.email_locally_complete.disconnect(on_folder_email_locally_complete);
+                folder.email_flags_changed.disconnect(on_folder_email_flags_changed);
             }
         }
     }
@@ -74,6 +76,11 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
     private void on_folder_email_locally_complete(Geary.Folder folder,
         Gee.Collection<Geary.EmailIdentifier> ids) {
         notify_email_locally_complete(folder, ids);
+    }
+    
+    private void on_folder_email_flags_changed(Geary.Folder folder,
+        Gee.Map<Geary.EmailIdentifier, Geary.EmailFlags> flag_map) {
+        notify_email_flags_changed(folder, flag_map);
     }
     
     private void check_open() throws EngineError {

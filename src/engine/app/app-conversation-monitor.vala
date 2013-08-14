@@ -299,10 +299,10 @@ public class Geary.App.ConversationMonitor : BaseObject {
         
         folder.email_appended.connect(on_folder_email_appended);
         folder.email_removed.connect(on_folder_email_removed);
-        folder.email_flags_changed.connect(on_folder_email_flags_changed);
         folder.email_count_changed.connect(on_folder_email_count_changed);
         folder.opened.connect(on_folder_opened);
         folder.closed.connect(on_folder_closed);
+        folder.account.email_flags_changed.connect(on_account_email_flags_changed);
         folder.account.email_locally_complete.connect(on_account_email_locally_complete);
         // TODO: handle removed email
         
@@ -313,10 +313,10 @@ public class Geary.App.ConversationMonitor : BaseObject {
             
             folder.email_appended.disconnect(on_folder_email_appended);
             folder.email_removed.disconnect(on_folder_email_removed);
-            folder.email_flags_changed.disconnect(on_folder_email_flags_changed);
             folder.email_count_changed.disconnect(on_folder_email_count_changed);
             folder.opened.disconnect(on_folder_opened);
             folder.closed.disconnect(on_folder_closed);
+            folder.account.email_flags_changed.disconnect(on_account_email_flags_changed);
             folder.account.email_locally_complete.disconnect(on_account_email_locally_complete);
             
             throw err;
@@ -366,10 +366,10 @@ public class Geary.App.ConversationMonitor : BaseObject {
         
         folder.email_appended.disconnect(on_folder_email_appended);
         folder.email_removed.disconnect(on_folder_email_removed);
-        folder.email_flags_changed.disconnect(on_folder_email_flags_changed);
         folder.email_count_changed.disconnect(on_folder_email_count_changed);
         folder.opened.disconnect(on_folder_opened);
         folder.closed.disconnect(on_folder_closed);
+        folder.account.email_flags_changed.disconnect(on_account_email_flags_changed);
         folder.account.email_locally_complete.disconnect(on_account_email_locally_complete);
         
         Error? close_err = null;
@@ -680,7 +680,8 @@ public class Geary.App.ConversationMonitor : BaseObject {
         yield external_load_by_sparse_id(folder, appended_ids, Geary.Folder.ListFlags.NONE, null);
     }
     
-    private void on_folder_email_flags_changed(Gee.Map<Geary.EmailIdentifier, Geary.EmailFlags> map) {
+    private void on_account_email_flags_changed(Geary.Folder folder,
+        Gee.Map<Geary.EmailIdentifier, Geary.EmailFlags> map) {
         foreach (Geary.EmailIdentifier id in map.keys) {
             Conversation? conversation = conversations.get_by_email_identifier(id);
             if (conversation == null)

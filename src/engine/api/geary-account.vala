@@ -78,6 +78,12 @@ public interface Geary.Account : BaseObject {
         Gee.Collection<Geary.EmailIdentifier> ids);
     
     /**
+     * Fired when the supplied email flags have changed from any folder.
+     */
+    public signal void email_flags_changed(Geary.Folder folder,
+        Gee.Map<Geary.EmailIdentifier, Geary.EmailFlags> map);
+    
+    /**
      * Signal notification method for subclasses to use.
      */
     protected abstract void notify_opened();
@@ -126,6 +132,9 @@ public interface Geary.Account : BaseObject {
     
     protected abstract void notify_email_locally_complete(Geary.Folder folder,
         Gee.Collection<Geary.EmailIdentifier> ids);
+    
+    protected abstract void notify_email_flags_changed(Geary.Folder folder,
+        Gee.Map<Geary.EmailIdentifier, Geary.EmailFlags> flag_map);
     
     /**
      * A utility method to sort a Gee.Collection of {@link Folder}s by their {@link FolderPath}s
