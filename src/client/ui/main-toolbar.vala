@@ -14,117 +14,98 @@ public class MainToolbar : Gtk.Box {
     public FolderMenu move_folder_menu { get; private set; }
     public string search_text { get { return search_entry.text; } }
     
-    //private GtkUtil.ToggleToolbarDropdown mark_menu_dropdown;
-    //private GtkUtil.ToggleToolbarDropdown app_menu_dropdown;
-    private Gtk.ToolItem search_container;
-    private Gtk.Entry search_entry;
+//    private GtkUtil.ToggleToolbarDropdown mark_menu_dropdown;
+//    private GtkUtil.ToggleToolbarDropdown app_menu_dropdown;
+    private Gtk.ToolItem search_container = new Gtk.ToolItem();
+    private Gtk.Entry search_entry = new Gtk.Entry();
     private Geary.ProgressMonitor? search_upgrade_progress_monitor = null;
     private MonitoredProgressBar search_upgrade_progress_bar = new MonitoredProgressBar();
     
     public signal void search_text_changed(string search_text);
     
     public MainToolbar() {
-        Object(orientation: Gtk.Orientation.VERTICAL, spacing: 0);
+        Object(orientation: Gtk.Orientation.HORIZONTAL, spacing: 0);
         
         GearyApplication.instance.controller.account_selected.connect(on_account_changed);
         
         //Gtk.Builder builder = GearyApplication.instance.create_builder("toolbar.glade");
         //toolbar = builder.get_object("toolbar") as Gtk.Toolbar;
         
+        // Setup the folder menus.
+        copy_folder_menu = new FolderMenu(
+            IconFactory.instance.get_custom_icon("tag-new", IconFactory.ICON_TOOLBAR),
+            Gtk.IconSize.LARGE_TOOLBAR, null, null);
+//        copy_folder_menu.attach(copy_button);
+//        
+        move_folder_menu = new FolderMenu(
+            IconFactory.instance.get_custom_icon("mail-move", IconFactory.ICON_TOOLBAR),
+            Gtk.IconSize.LARGE_TOOLBAR, null, null);
+//        move_folder_menu.attach(move_button);
+        
+        // Assemble mark menu button.
+        GearyApplication.instance.load_ui_file("toolbar_mark_menu.ui");
+        Gtk.Menu mark_menu = (Gtk.Menu) GearyApplication.instance.ui_manager.get_widget("/ui/ToolbarMarkMenu");
+                
+        // Ensure that shortcut keys are drawn in the mark menu
+        //mark_menu.foreach(GtkUtil.show_menuitem_accel_labels);
+        
+      /*  Gtk.Menu mark_proxy_menu = (Gtk.Menu) GearyApplication.instance.ui_manager
+            .get_widget("/ui/ToolbarMarkMenuProxy");
+        mark_menu_dropdown = new GtkUtil.ToggleToolbarDropdown(
+            IconFactory.instance.get_custom_icon("edit-mark", IconFactory.ICON_TOOLBAR),
+            Gtk.IconSize.LARGE_TOOLBAR, mark_menu, mark_proxy_menu); */
+        
         toolbar = new Gtk.Toolbar();
-
+        toolbar.orientation = Gtk.Orientation.HORIZONTAL;
+        
         Gee.List<Gtk.Button> insert = new Gee.ArrayList<Gtk.Button>();
         
         // Compose.
-        insert.add(create_toolbar_button(_("Compose"), _("Start new conversation (Ctrl+N, N)"),
-            "mail-message-new", GearyController.ACTION_NEW_MESSAGE));
-        toolbar.add(create_pill_buttons(insert));
+        insert.add(create_toolbar_button("mail-unread-symbolic", GearyController.ACTION_NEW_MESSAGE));
+        toolbar.add(create_pill_buttons(insert, false));
         
         // Reply buttons
         insert.clear();
-        insert.add(create_toolbar_button("", _("Reply to last message in conversation (Ctrl+R, R)"), 
-            "mail-reply-sender", GearyController.ACTION_REPLY_TO_MESSAGE));
-        insert.add(create_toolbar_button("", _("Reply to everyone in last message of conversation (Ctrl+Shift+R, Shift+R)"), 
-            "mail-reply-all", GearyController.ACTION_REPLY_ALL_MESSAGE));
-        insert.add(create_toolbar_button("", _("Send copy of last message in conversation (Ctrl+L, F)"),
-            "mail-forward", GearyController.ACTION_FORWARD_MESSAGE));
+        insert.add(create_toolbar_button("mail-reply-sender", GearyController.ACTION_REPLY_TO_MESSAGE));
+        insert.add(create_toolbar_button("mail-reply-all", GearyController.ACTION_REPLY_ALL_MESSAGE));
+        insert.add(create_toolbar_button("mail-forward", GearyController.ACTION_FORWARD_MESSAGE));
         toolbar.add(create_pill_buttons(insert));
         
+        // Mark, copy, move.
+        insert.clear();
+        insert.add(create_menu_button("edit-mark", mark_menu, GearyController.ACTION_MARK_AS_MENU));
+        insert.add(create_menu_button("tag-new", null, GearyController.ACTION_COPY_MENU));
+        insert.add(create_menu_button("mail-move", null, GearyController.ACTION_MOVE_MENU));
+        toolbar.add(create_pill_buttons(insert));
         
-        // Assemble mark menu button.
-        GearyApplication.instance.load_ui_file("toolbar_mark_menu.ui");
-        Gtk.Menu mark_menu = GearyApplication.instance.ui_manager.get_widget("/ui/ToolbarMarkMenu")
-            as Gtk.Menu;
-        Gtk.Menu mark_proxy_menu = (Gtk.Menu) GearyApplication.instance.ui_manager
-            .get_widget("/ui/ToolbarMarkMenuProxy");
-        Gtk.ToggleToolButton mark_menu_button = set_toolbutton_action(builder,
-            GearyController.ACTION_MARK_AS_MENU) as Gtk.ToggleToolButton;
-        mark_menu_dropdown = new GtkUtil.ToggleToolbarDropdown(
-            IconFactory.instance.get_custom_icon("edit-mark", IconFactory.ICON_TOOLBAR),
-            Gtk.IconSize.LARGE_TOOLBAR, mark_menu, mark_proxy_menu);
-        mark_menu_dropdown.attach(mark_menu_button);
+        // Archive/delete button.
+        // For this button, the controller sets the tooltip and icon depending on the context.
+        insert.clear();
+        insert.add(create_toolbar_button("", GearyController.ACTION_DELETE_MESSAGE));
+        toolbar.add(create_pill_buttons(insert));
         
-        // Ensure that shortcut keys are drawn in the mark menu
-        mark_menu.foreach(GtkUtil.show_menuitem_accel_labels);
-        
-        copy_folder_menu = new FolderMenu(
-            IconFactory.instance.get_custom_icon("tag-new", IconFactory.ICON_TOOLBAR),
-            Gtk.IconSize.LARGE_TOOLBAR, null, null);
-        
-        move_folder_menu = new FolderMenu(
-            IconFactory.instance.get_custom_icon("mail-move", IconFactory.ICON_TOOLBAR),
-            Gtk.IconSize.LARGE_TOOLBAR, null, null);
-        
-        /*
-
-        // Setup each of the normal toolbar buttons.
-        set_toolbutton_action(builder, GearyController.ACTION_NEW_MESSAGE);
-        set_toolbutton_action(builder, GearyController.ACTION_REPLY_TO_MESSAGE);
-        set_toolbutton_action(builder, GearyController.ACTION_REPLY_ALL_MESSAGE);
-        set_toolbutton_action(builder, GearyController.ACTION_FORWARD_MESSAGE);
-        set_toolbutton_action(builder, GearyController.ACTION_DELETE_MESSAGE, true);
-
-        // Setup the folder menus (move/copy).
-        
-        Gtk.ToggleToolButton copy_toggle_button = set_toolbutton_action(builder,
-            GearyController.ACTION_COPY_MENU) as Gtk.ToggleToolButton;
-        copy_folder_menu = new FolderMenu(
-            IconFactory.instance.get_custom_icon("tag-new", IconFactory.ICON_TOOLBAR),
-            Gtk.IconSize.LARGE_TOOLBAR, null, null);
-        copy_folder_menu.attach(copy_toggle_button);
-        
-        Gtk.ToggleToolButton move_toggle_button = set_toolbutton_action(builder,
-            GearyController.ACTION_MOVE_MENU) as Gtk.ToggleToolButton;
-        move_folder_menu = new FolderMenu(
-            IconFactory.instance.get_custom_icon("mail-move", IconFactory.ICON_TOOLBAR),
-            Gtk.IconSize.LARGE_TOOLBAR, null, null);
-        move_folder_menu.attach(move_toggle_button);
-        
-        // Assemble mark menu button.
-        GearyApplication.instance.load_ui_file("toolbar_mark_menu.ui");
-        Gtk.Menu mark_menu = GearyApplication.instance.ui_manager.get_widget("/ui/ToolbarMarkMenu")
-            as Gtk.Menu;
-        Gtk.Menu mark_proxy_menu = (Gtk.Menu) GearyApplication.instance.ui_manager
-            .get_widget("/ui/ToolbarMarkMenuProxy");
-        Gtk.ToggleToolButton mark_menu_button = set_toolbutton_action(builder,
-            GearyController.ACTION_MARK_AS_MENU) as Gtk.ToggleToolButton;
-        mark_menu_dropdown = new GtkUtil.ToggleToolbarDropdown(
-            IconFactory.instance.get_custom_icon("edit-mark", IconFactory.ICON_TOOLBAR),
-            Gtk.IconSize.LARGE_TOOLBAR, mark_menu, mark_proxy_menu);
-        mark_menu_dropdown.attach(mark_menu_button);
-        
-        // Ensure that shortcut keys are drawn in the mark menu
-        mark_menu.foreach(GtkUtil.show_menuitem_accel_labels);
+        // Spacer.
+        Gtk.ToolItem spacer = new Gtk.ToolItem();
+    //    spacer.hexpand = true;
+        spacer.expand = true;
+        spacer.set_homogeneous(false);
+        toolbar.add(spacer);
         
         // Search bar.
-        search_container = (Gtk.ToolItem) builder.get_object("search_container");
-        search_entry = (Gtk.Entry) builder.get_object("search_entry");
+        search_entry.width_chars = 32;
+        search_entry.primary_icon_name = "edit-find-symbolic";
+        search_entry.secondary_icon_name = "edit-clear-symbolic";
+        search_entry.secondary_icon_activatable = true;
+        search_entry.secondary_icon_sensitive = true;
         search_entry.changed.connect(on_search_entry_changed);
         search_entry.icon_release.connect(on_search_entry_icon_release);
         search_entry.key_press_event.connect(on_search_key_press);
         on_search_entry_changed(); // set initial state
         search_entry.has_focus = true;
-        
+        search_container.add(search_entry);
+        toolbar.add(search_container);
+       
+       /* 
         // Setup the application menu.
         GearyApplication.instance.load_ui_file("toolbar_menu.ui");
         Gtk.Menu application_menu = GearyApplication.instance.ui_manager.get_widget("/ui/ToolbarMenu")
@@ -150,8 +131,11 @@ public class MainToolbar : Gtk.Box {
 //        search_upgrade_progress_bar.show_text = true;
 //        search_upgrade_progress_bar.margin_top = search_upgrade_progress_bar.margin_bottom = 3;
         
+        // Let users drag window with the toolbar.
+        toolbar.get_style_context().add_class(Gtk.STYLE_CLASS_MENUBAR);
+        
         add(toolbar);
-      //  set_search_placeholder_text(DEFAULT_SEARCH_TEXT);
+        set_search_placeholder_text(DEFAULT_SEARCH_TEXT);
     }
     
 //    private Gtk.ToolButton set_toolbutton_action(Gtk.Builder builder, string action,
@@ -173,24 +157,24 @@ public class MainToolbar : Gtk.Box {
         search_entry.placeholder_text = placeholder;
     }
     
-//    private void on_search_entry_changed() {
-//        search_text_changed(search_entry.text);
-//        // Enable/disable clear button.
-//        search_entry.secondary_icon_name = search_entry.text != "" ? ICON_CLEAR_NAME : null;
-//    }
-//    
-//    private void on_search_entry_icon_release(Gtk.EntryIconPosition icon_pos, Gdk.Event event) {
-//        if (icon_pos == Gtk.EntryIconPosition.SECONDARY)
-//            search_entry.text = "";
-//    }
-//    
-//    private bool on_search_key_press(Gdk.EventKey event) {
-//        // Clear box if user hits escape.
-//        if (Gdk.keyval_name(event.keyval) == "Escape")
-//            search_entry.text = "";
-//        
-//        return false;
-//    }
+    private void on_search_entry_changed() {
+        search_text_changed(search_entry.text);
+        // Enable/disable clear button.
+        search_entry.secondary_icon_name = search_entry.text != "" ? ICON_CLEAR_NAME : null;
+    }
+    
+    private void on_search_entry_icon_release(Gtk.EntryIconPosition icon_pos, Gdk.Event event) {
+        if (icon_pos == Gtk.EntryIconPosition.SECONDARY)
+            search_entry.text = "";
+    }
+    
+    private bool on_search_key_press(Gdk.EventKey event) {
+        // Clear box if user hits escape.
+        if (Gdk.keyval_name(event.keyval) == "Escape")
+            search_entry.text = "";
+        
+        return false;
+    }
     
     private void on_search_upgrade_start() {
         search_container.remove(search_container.get_child());
@@ -199,8 +183,8 @@ public class MainToolbar : Gtk.Box {
     }
     
     private void on_search_upgrade_finished() {
-        //search_container.remove(search_container.get_child());
-        //search_container.add(search_entry);
+        search_container.remove(search_container.get_child());
+        search_container.add(search_entry);
     }
     
     private void on_account_changed(Geary.Account? account) {
@@ -228,20 +212,28 @@ public class MainToolbar : Gtk.Box {
              DEFAULT_SEARCH_TEXT : _("Search %s account").printf(account.information.nickname));
     }
     
-    private Gtk.Button create_toolbar_button(string label, string tooltip, string icon_name,
-        string? action_name = null) {
-        Gtk.Button b = new Gtk.Button.with_label(label);
-        b.image = new Gtk.Image.from_icon_name(icon_name, Gtk.IconSize.BUTTON);
+    private Gtk.Button create_toolbar_button(string icon_name, string action_name) {
+        Gtk.Button b = new Gtk.Button();
+        b.related_action = GearyApplication.instance.actions.get_action(action_name);
+        b.image = new Gtk.Image.from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR);
+        b.image.margin_right = 4;
         b.always_show_image = true;
-        b.tooltip_text = tooltip;
-        
-        if (action_name != null)
-            b.set_action_name(action_name);
         
         return b;
     }
     
-    private Gtk.ToolItem create_pill_buttons(Gee.Collection<Gtk.Button> buttons) {
+    private Gtk.MenuButton create_menu_button(string icon_name, Gtk.Menu? menu, string action_name) {
+        Gtk.MenuButton b = new Gtk.MenuButton();
+        b.related_action = GearyApplication.instance.actions.get_action(action_name); 
+        b.image = new Gtk.Image.from_icon_name(icon_name, Gtk.IconSize.LARGE_TOOLBAR);
+        b.image.margin_right = 4;
+        b.always_show_image = true;
+        b.popup = menu;
+        
+        return b;
+    }
+    
+    private Gtk.ToolItem create_pill_buttons(Gee.Collection<Gtk.Button> buttons, bool left_spacer = true) {
         Gtk.Box box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         box.get_style_context().add_class(Gtk.STYLE_CLASS_RAISED);
         box.get_style_context().add_class(Gtk.STYLE_CLASS_LINKED);
@@ -251,6 +243,9 @@ public class MainToolbar : Gtk.Box {
         
         Gtk.ToolItem tool_item = new Gtk.ToolItem();
         tool_item.add(box);
+        
+        if (left_spacer)
+            box.set_margin_left(12);
         
         return tool_item;
     }
