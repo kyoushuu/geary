@@ -677,8 +677,8 @@ public class ComposerWindow : Gtk.Window {
                 _("Do you want to discard the unsaved message?"), null, Stock._DISCARD);
         } else {
             dialog = new TernaryConfirmationDialog(this,
-                _("Do you want to discard this message?"), null,
-                _("Keep"), Stock._DISCARD, Gtk.ResponseType.CLOSE);
+                _("Do you want to discard this message?"), null, Stock._KEEP, Stock._DISCARD,
+                Gtk.ResponseType.CLOSE);
         }
         
         Gtk.ResponseType response = dialog.run();
@@ -888,17 +888,17 @@ public class ComposerWindow : Gtk.Window {
             return;
         
         Geary.FolderSupport.Remove? removable_drafts = drafts_folder as Geary.FolderSupport.Remove;
+        if (removable_drafts == null) {
+            warning("Draft folder does not support remove.\n");
+            
+            return;
+        }
+        
         try {
             yield removable_drafts.remove_single_email_async(draft_id);
         } catch (Error e) {
             warning("Unable to delete draft: %s", e.message);
         }
-    }
-    
-    public async void sleep_async(uint seconds) {
-        uint id = Timeout.add_seconds(seconds, sleep_async.callback);
-        yield;
-        Source.remove(id);
     }
     
     private void on_add_attachment_button_clicked() {
