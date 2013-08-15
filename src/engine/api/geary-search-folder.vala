@@ -26,7 +26,7 @@ public class Geary.SearchFolderProperties : Geary.FolderProperties {
  * Special folder type used to query and display search results.
  */
 
-public class Geary.SearchFolder : Geary.AbstractLocalFolder {
+public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport.Remove {
     // Max number of emails that can ever be in the folder.
     public static const int MAX_RESULT_EMAILS = 1000;
     
@@ -316,6 +316,51 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder {
         Geary.Email.Field required_fields, Geary.Folder.ListFlags flags,
         Cancellable? cancellable = null) throws Error {
         return yield account.local_fetch_email_async(id, required_fields, cancellable);
+    }
+    
+    public virtual async void remove_email_async(Gee.List<Geary.EmailIdentifier> email_ids,
+        Cancellable? cancellable = null) throws Error {
+        Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? ids_to_folders
+            = yield account.get_containing_folders_async(email_ids, cancellable);
+        if (ids_to_folders == null)
+            return;
+        Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids
+            = Geary.Collection.reverse_multi_map<Geary.EmailIdentifier, Geary.FolderPath>(ids_to_folders);
+        
+        foreach (Geary.FolderPath path in folders_to_ids.get_keys()) {
+            Geary.Folder folder = yield account.fetch_folder_async(path, cancellable);
+            Geary.FolderSupport.Remove? remove = folder as Geary.FolderSupport.Remove;
+            if (remove == null)
+                continue;
+            
+            Gee.Collection<Geary.EmailIdentifier> ids = folders_to_ids.get(path);
+            assert(ids.size > 0);
+            
+            debug("Search folder removing %d emails from %s", ids.size, folder.to_string());
+            
+            bool open = false;
+            try {
+                yield folder.open_async(Geary.Folder.OpenFlags.FAST_OPEN, cancellable);
+                open = true;
+                
+                yield remove.remove_email_async(
+                    Geary.Collection.to_array_list<Geary.EmailIdentifier>(ids), cancellable);
+                
+                yield folder.close_async(cancellable);
+                open = false;
+            } catch (Error e) {
+                debug("Error removing messages in %s: %s", folder.to_string(), e.message);
+                
+                if (open) {
+                    try {
+                        yield folder.close_async(cancellable);
+                        open = false;
+                    } catch (Error e) {
+                        debug("Error closing folder %s: %s", folder.to_string(), e.message);
+                    }
+                }
+            }
+        }
     }
     
     /**
