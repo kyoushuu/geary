@@ -19,7 +19,7 @@ public class FolderList.AccountBranch : Sidebar.Branch {
         uncommon_special_group = new SpecialGrouping(1, _("More"),
             new ThemedIcon("folder-open"), new ThemedIcon("folder"));
         user_folder_group = new SpecialGrouping(2, "",
-            IconFactory.instance.get_custom_icon("tags", IconFactory.ICON_SIDEBAR));
+            IconFactory.instance.get_custom_icon("tag-symbolic", IconFactory.ICON_SIDEBAR));
         folder_entries = new Gee.HashMap<Geary.FolderPath, FolderEntry>();
         
         account.information.notify["nickname"].connect(on_nicknamed_changed);

@@ -143,8 +143,8 @@ public class ConversationWebView : WebKit.WebView {
         
         // Load the icons.
         set_icon_src("#email_template .menu .icon", "go-down");
-        set_icon_src("#email_template .starred .icon", "starred");
-        set_icon_src("#email_template .unstarred .icon", "non-starred-grey");
+        set_icon_src("#email_template .starred .icon", "star-symbolic");
+        set_icon_src("#email_template .unstarred .icon", "unstarred-symbolic");
         set_icon_src("#email_template .attachment.icon", "mail-attachment");
         set_icon_src("#email_template .close_show_images", "gtk-close");
         set_icon_src("#link_warning_template .close_link_warning", "gtk-close");

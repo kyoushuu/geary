@@ -49,8 +49,8 @@ public class IconFactory {
         // Load icons here.
         application_icon = load("geary", APPLICATION_ICON_SIZE);
         unread = load("mail-unread", UNREAD_ICON_SIZE);
-        starred = load("starred", STAR_ICON_SIZE);
-        unstarred = load("non-starred-grey", STAR_ICON_SIZE);
+        starred = load("star-symbolic", STAR_ICON_SIZE);
+        unstarred = load("unstarred-symbolic", STAR_ICON_SIZE);
     }
     
     public void init() {
@@ -76,7 +76,15 @@ public class IconFactory {
     public Icon get_custom_icon(string name, Gtk.IconSize size) {
         int pixels = icon_size_to_pixels(size);
         
-        return new FileIcon(icons_dir.get_child("%dx%d".printf(pixels, pixels)).get_child("%s.svg".printf(name)));
+        // Try sized icon first.
+        File icon_file = icons_dir.get_child("%dx%d".printf(pixels, pixels)).get_child(
+            "%s.svg".printf(name));
+        
+        // If that wasn't found, try a non-sized icon.
+        if (!icon_file.query_exists())
+            icon_file = icons_dir.get_child("%s.svg".printf(name));
+        
+        return new FileIcon(icon_file);
     }
     
     private void append_icons_search_path(string? name) {

@@ -45,7 +45,7 @@ public class GearyController : Geary.BaseObject {
     private const string ARCHIVE_MESSAGE_LABEL = _("_Archive");
     private const string ARCHIVE_MESSAGE_TOOLTIP_SINGLE = _("Archive conversation (Delete, Backspace, A)");
     private const string ARCHIVE_MESSAGE_TOOLTIP_MULTIPLE = _("Archive conversations (Delete, Backspace, A)");
-    private const string ARCHIVE_MESSAGE_ICON_NAME = "mail-archive";
+    private const string ARCHIVE_MESSAGE_ICON_NAME = "archive-symbolic";
     
     private const string MARK_AS_SPAM_LABEL = _("Mark as s_pam");
     private const string MARK_AS_NOT_SPAM_LABEL = _("Mark as not s_pam");
@@ -247,7 +247,7 @@ public class GearyController : Geary.BaseObject {
         quit.label = _("_Quit");
         entries += quit;
         
-        Gtk.ActionEntry mark_menu = { ACTION_MARK_AS_MENU, null, TRANSLATABLE, null, _("Mark as"),
+        Gtk.ActionEntry mark_menu = { ACTION_MARK_AS_MENU, null, TRANSLATABLE, null, _("Mark conversation"),
             on_show_mark_menu };
         mark_menu.label = _("_Mark as...");
         mark_menu.tooltip = MARK_MESSAGE_MENU_TOOLTIP_SINGLE;
@@ -265,7 +265,7 @@ public class GearyController : Geary.BaseObject {
         entries += mark_unread;
         add_accelerator("<Shift>U", ACTION_MARK_AS_UNREAD);
         
-        Gtk.ActionEntry mark_starred = { ACTION_MARK_AS_STARRED, "starred", TRANSLATABLE, "S", null,
+        Gtk.ActionEntry mark_starred = { ACTION_MARK_AS_STARRED, "star-symbolic", TRANSLATABLE, "S", null,
             on_mark_as_starred };
         mark_starred.label = _("_Star");
         entries += mark_starred;
@@ -281,36 +281,33 @@ public class GearyController : Geary.BaseObject {
         entries += mark_spam;
         add_accelerator("exclam", ACTION_MARK_AS_SPAM); // Exclamation mark (!)
         
-        Gtk.ActionEntry copy_menu = { ACTION_COPY_MENU, null, TRANSLATABLE, "L", _("Copy") , null };
+        Gtk.ActionEntry copy_menu = { ACTION_COPY_MENU, null, TRANSLATABLE, "L",
+            _("Add label to conversation"), null };
         copy_menu.label = _("_Label");
         entries += copy_menu;
 
-        Gtk.ActionEntry move_menu = { ACTION_MOVE_MENU, null, TRANSLATABLE, "M", _("Move"), null };
+        Gtk.ActionEntry move_menu = { ACTION_MOVE_MENU, null, TRANSLATABLE, "M", _("Move conversation"), null };
         move_menu.label = _("_Move");
         entries += move_menu;
 
-        Gtk.ActionEntry new_message = { ACTION_NEW_MESSAGE, null, TRANSLATABLE, "<Ctrl>N", 
+        Gtk.ActionEntry new_message = { ACTION_NEW_MESSAGE, null, null, "<Ctrl>N", 
             _("Start new conversation (Ctrl+N, N)"), on_new_message };
-        new_message.label = _("_Compose");
         entries += new_message;
         add_accelerator("N", ACTION_NEW_MESSAGE);
 
         Gtk.ActionEntry reply_to_message = { ACTION_REPLY_TO_MESSAGE, null, null, "<Ctrl>R",
             _("Reply to last message in conversation (Ctrl+R, R)"), on_reply_to_message_action };
-//        reply_to_message.label = _("_Reply");
         entries += reply_to_message;
         add_accelerator("R", ACTION_REPLY_TO_MESSAGE);
         
         Gtk.ActionEntry reply_all_message = { ACTION_REPLY_ALL_MESSAGE, null, null,
             "<Ctrl><Shift>R", _("Reply to everyone in last message of conversation (Ctrl+Shift+R, Shift+R)"), 
             on_reply_all_message_action };
-//        reply_all_message.label = _("Reply _all");
         entries += reply_all_message;
         add_accelerator("<Shift>R", ACTION_REPLY_ALL_MESSAGE);
         
         Gtk.ActionEntry forward_message = { ACTION_FORWARD_MESSAGE, null, null, "<Ctrl>L", 
             _("Send copy of last message in conversation (Ctrl+L, F)"), on_forward_message_action };
-//        forward_message.label = _("_Forward");
         entries += forward_message;
         add_accelerator("F", ACTION_FORWARD_MESSAGE);
         
@@ -357,7 +354,7 @@ public class GearyController : Geary.BaseObject {
     private Gtk.ToggleActionEntry[] create_toggle_actions() {
         Gtk.ToggleActionEntry[] entries = new Gtk.ToggleActionEntry[0];
         
-        Gtk.ToggleActionEntry gear_menu = { ACTION_GEAR_MENU, null, _("Menu"), "F10",
+        Gtk.ToggleActionEntry gear_menu = { ACTION_GEAR_MENU, null, null, "F10",
             null, null, false };
         entries += gear_menu;
         
