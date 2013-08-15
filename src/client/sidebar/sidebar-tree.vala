@@ -799,10 +799,12 @@ public class Sidebar.Tree : Gtk.TreeView {
             if (info == null)
                 return null;
             
+            // If the icon's symbolic, make it black.
             Gdk.RGBA black = Gdk.RGBA();
             black.red = black.green = black.blue = 0.0;
             black.alpha = 1.0;
             icon = info.load_symbolic(black);
+            
             if (icon == null)
                 return null;
             

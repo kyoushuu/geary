@@ -45,7 +45,7 @@
     <child>
       <object class="GtkAction" id="insertlink">
         <property name="label" translatable="yes">Lin_k</property>
-        <property name="icon_name">insert-link</property>
+        <property name="icon_name">insert-link-symbolic</property>
       </object>
       <accelerator key="l" modifiers="GDK_CONTROL_MASK"/>
     </child>
@@ -64,14 +64,14 @@
     <child>
       <object class="GtkAction" id="indent">
         <property name="label" translatable="yes">Quote text</property>
-        <property name="icon_name">format-indent-more</property>
+        <property name="icon_name">format-indent-more-symbolic</property>
       </object>
       <accelerator key="bracketright" modifiers="GDK_CONTROL_MASK"/>
     </child>
     <child>
       <object class="GtkAction" id="outdent">
         <property name="label" translatable="yes">Unquote text</property>
-        <property name="icon_name">format-indent-less</property>
+        <property name="icon_name">format-indent-less-symbolic</property>
       </object>
       <accelerator key="bracketleft" modifiers="GDK_CONTROL_MASK"/>
     </child>
@@ -95,25 +95,25 @@
     </child>
     <child>
       <object class="GtkToggleAction" id="bold">
-        <property name="icon_name">format-text-bold</property>
+        <property name="icon_name">format-text-bold-symbolic</property>
       </object>
       <accelerator key="b" modifiers="GDK_CONTROL_MASK"/>
     </child>
     <child>
       <object class="GtkToggleAction" id="italic">
-        <property name="icon_name">format-text-italic</property>
+        <property name="icon_name">format-text-italic-symbolic</property>
       </object>
       <accelerator key="i" modifiers="GDK_CONTROL_MASK"/>
     </child>
     <child>
       <object class="GtkToggleAction" id="underline">
-        <property name="icon_name">format-text-underline</property>
+        <property name="icon_name">format-text-underline-symbolic</property>
       </object>
       <accelerator key="u" modifiers="GDK_CONTROL_MASK"/>
     </child>
     <child>
       <object class="GtkToggleAction" id="strikethrough">
-        <property name="icon_name">format-text-strikethrough</property>
+        <property name="icon_name">format-text-strikethrough-symbolic</property>
       </object>
       <accelerator key="k" modifiers="GDK_CONTROL_MASK"/>
     </child>
