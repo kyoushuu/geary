@@ -324,6 +324,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
             = yield account.get_containing_folders_async(email_ids, cancellable);
         if (ids_to_folders == null)
             return;
+        
         Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids
             = Geary.Collection.reverse_multi_map<Geary.EmailIdentifier, Geary.FolderPath>(ids_to_folders);
         
@@ -361,6 +362,12 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
                 }
             }
         }
+        
+        // HACK: we should be relying on the normal folder notifications here,
+        // but they're not hooked up for remove (see #7214).  In reality, we
+        // want something like append_new_email_async(), but for removed
+        // emails.  (See also GmailSearchFolder.)
+        notify_email_removed(email_ids);
     }
     
     /**
