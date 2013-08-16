@@ -6,13 +6,10 @@
 
 private class Geary.App.MoveOperation : Geary.App.AsyncFolderOperation {
     public override Type folder_type { get { return typeof(Geary.FolderSupport.Move); } }
-    public override Geary.FolderPath? restrict_to_folder { get { return origin; } }
     
-    public Geary.FolderPath origin;
     public Geary.FolderPath destination;
     
-    public MoveOperation(Geary.FolderPath origin, Geary.FolderPath destination) {
-        this.origin = origin;
+    public MoveOperation(Geary.FolderPath destination) {
         this.destination = destination;
     }
     

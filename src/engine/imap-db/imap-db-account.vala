@@ -96,7 +96,7 @@ private class Geary.ImapDB.Account : BaseObject {
         outbox = new SmtpOutboxFolder(db, account);
         
         // Search folder
-        search_folder = new SearchFolder(account);
+        search_folder = ((ImapEngine.GenericAccount) account).new_search_folder();
     }
     
     public async void close_async(Cancellable? cancellable) throws Error {

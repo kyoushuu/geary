@@ -111,11 +111,15 @@ public class Geary.App.EmailStore : BaseObject {
     /**
      * Moves any set of EmailIdentifiers as if they were all in one
      * Geary.FolderSupport.Move folder.
+     *
+     * NOTE: this moves the emails from any *one* folder they're in,
+     * unpredictably.  It does *not* move them from *all* folders they're in.
+     * In most cases, this is not the move operation you want (use the Folder's
+     * instead).
      */
     public async void move_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
-        Geary.FolderPath origin, Geary.FolderPath destination,
-        Cancellable? cancellable = null) throws Error {
-        yield do_folder_operation_async(new Geary.App.MoveOperation(origin, destination),
+        Geary.FolderPath destination, Cancellable? cancellable = null) throws Error {
+        yield do_folder_operation_async(new Geary.App.MoveOperation(destination),
             emails, cancellable);
     }
     
@@ -133,12 +137,6 @@ public class Geary.App.EmailStore : BaseObject {
     private Geary.FolderPath? next_folder_for_operation(AsyncFolderOperation operation,
         Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids,
         Gee.Map<Geary.FolderPath, Geary.Folder> folders) throws Error {
-        if (operation.restrict_to_folder != null) {
-            if (folders_to_ids.contains(operation.restrict_to_folder))
-                return operation.restrict_to_folder;
-            return null;
-        }
-        
         bool best_is_open = false;
         int best_count = 0;
         Geary.FolderPath? best = null;
@@ -179,6 +177,9 @@ public class Geary.App.EmailStore : BaseObject {
         
         Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? ids_to_folders
             = yield account.get_containing_folders_async(emails, cancellable);
+        if (ids_to_folders == null)
+            return;
+        
         Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids
             = Geary.Collection.reverse_multi_map<Geary.EmailIdentifier, Geary.FolderPath>(ids_to_folders);
         Gee.HashMap<Geary.FolderPath, Geary.Folder> folders

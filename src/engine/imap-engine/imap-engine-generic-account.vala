@@ -179,6 +179,12 @@ private abstract class Geary.ImapEngine.GenericAccount : Geary.AbstractAccount {
     protected abstract GenericFolder new_folder(Geary.FolderPath path, Imap.Account remote_account,
         ImapDB.Account local_account, ImapDB.Folder local_folder);
     
+    // Subclasses with specific SearchFolder implementations should override
+    // this to return the correct subclass.
+    internal virtual SearchFolder new_search_folder() {
+        return new SearchFolder(this);
+    }
+    
     private GenericFolder build_folder(ImapDB.Folder local_folder) {
         return Geary.Collection.get_first(build_folders(new Collection.SingleItem<ImapDB.Folder>(local_folder)));
     }
