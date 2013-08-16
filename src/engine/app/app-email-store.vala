@@ -108,21 +108,6 @@ public class Geary.App.EmailStore : BaseObject {
             emails, cancellable);
     }
     
-    /**
-     * Moves any set of EmailIdentifiers as if they were all in one
-     * Geary.FolderSupport.Move folder.
-     *
-     * NOTE: this moves the emails from any *one* folder they're in,
-     * unpredictably.  It does *not* move them from *all* folders they're in.
-     * In most cases, this is not the move operation you want (use the Folder's
-     * instead).
-     */
-    public async void move_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
-        Geary.FolderPath destination, Cancellable? cancellable = null) throws Error {
-        yield do_folder_operation_async(new Geary.App.MoveOperation(destination),
-            emails, cancellable);
-    }
-    
     private async Gee.HashMap<Geary.FolderPath, Geary.Folder> get_folder_instances_async(
         Gee.Collection<Geary.FolderPath> paths, Cancellable? cancellable) throws Error {
         Gee.HashMap<Geary.FolderPath, Geary.Folder> folders

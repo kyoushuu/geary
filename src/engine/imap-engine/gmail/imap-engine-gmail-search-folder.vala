@@ -30,7 +30,9 @@ public class Geary.ImapEngine.GmailSearchFolder : Geary.SearchFolder {
             debug("Can't remove email from search folder because no trash folder was found in %s",
                 account.to_string());
         } else {
-            yield email_store.move_email_async(email_ids, trash_folder.path, cancellable);
+            // Copying to trash from one folder is all that's required in Gmail
+            // to fully trash the message.
+            yield email_store.copy_email_async(email_ids, trash_folder.path, cancellable);
         }
         
         // HACK: we shouldn't need to do this.  See the note at the bottom of
