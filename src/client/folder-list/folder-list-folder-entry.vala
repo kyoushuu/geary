@@ -55,7 +55,7 @@ public class FolderList.FolderEntry : FolderList.AbstractFolderEntry, Sidebar.In
                 return new ThemedIcon("accessories-text-editor-symbolic");
             
             case Geary.SpecialFolderType.SENT:
-                return new ThemedIcon("stamp-symbolic");
+                return new ThemedIcon("sent-symbolic");
             
             case Geary.SpecialFolderType.FLAGGED:
                 return new ThemedIcon("star-symbolic");
@@ -67,7 +67,7 @@ public class FolderList.FolderEntry : FolderList.AbstractFolderEntry, Sidebar.In
                 return IconFactory.instance.get_custom_icon("archive-symbolic", IconFactory.ICON_SIDEBAR);
             
             case Geary.SpecialFolderType.SPAM:
-                return new ThemedIcon("mail-mark-junk");
+                return new ThemedIcon("spam-symbolic");
             
             case Geary.SpecialFolderType.TRASH:
                 return new ThemedIcon("user-trash-symbolic");

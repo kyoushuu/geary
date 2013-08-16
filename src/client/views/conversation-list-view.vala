@@ -139,20 +139,35 @@ public class ConversationListView : Gtk.TreeView {
         if (path == null)
             return false;
         
-        // If this is an unmodified click in the top-left of the cell, it is a star-click.
+        // Handle clicks to toggle read and starred status.
         if ((event.state & Gdk.ModifierType.SHIFT_MASK) == 0 &&
             (event.state & Gdk.ModifierType.CONTROL_MASK) == 0 &&
-            event.type == Gdk.EventType.BUTTON_PRESS && cell_x < 25 && cell_y < 25) {
-            
-            Geary.Conversation conversation = conversation_list_store.get_conversation_at_path(path);
-            Geary.EmailFlags flags = new Geary.EmailFlags();
-            flags.add(Geary.EmailFlags.FLAGGED);
-            if (conversation.is_flagged()) {
-                mark_conversation(conversation, null, flags, false);
-            } else {
-                mark_conversation(conversation, flags, null, true);
+            event.type == Gdk.EventType.BUTTON_PRESS) {
+            if (cell_x < 25 && cell_y >= 14 && cell_y <= 30) {
+                // Read/unread.
+                Geary.Conversation conversation = conversation_list_store.get_conversation_at_path(path);
+                Geary.EmailFlags flags = new Geary.EmailFlags();
+                flags.add(Geary.EmailFlags.UNREAD);
+                
+                if (conversation.is_unread())
+                    mark_conversation(conversation, null, flags, false);
+                else
+                    mark_conversation(conversation, flags, null, true);
+                
+                return true;
+            } else if (cell_x < 25 && cell_y >= 40 && cell_y <= 62) {
+                // Starred/unstarred.
+                Geary.Conversation conversation = conversation_list_store.get_conversation_at_path(path);
+                Geary.EmailFlags flags = new Geary.EmailFlags();
+                flags.add(Geary.EmailFlags.FLAGGED);
+                
+                if (conversation.is_flagged())
+                    mark_conversation(conversation, null, flags, false);
+                else
+                    mark_conversation(conversation, flags, null, true);
+                
+                return true;
             }
-            return true;
         }
         
         if (event.button == 3 && event.type == Gdk.EventType.BUTTON_PRESS) {

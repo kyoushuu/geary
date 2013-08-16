@@ -41,7 +41,7 @@ public class MainToolbar : Gtk.Box {
         Gee.List<Gtk.Button> insert = new Gee.ArrayList<Gtk.Button>();
         
         // Compose.
-        insert.add(create_toolbar_button("compose-symbolic", GearyController.ACTION_NEW_MESSAGE));
+        insert.add(create_toolbar_button("text-editor-symbolic", GearyController.ACTION_NEW_MESSAGE));
         toolbar.add(create_pill_buttons(insert, false));
         
         // Reply buttons
