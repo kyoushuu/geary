@@ -27,6 +27,10 @@ public class Geary.App.Conversation : BaseObject {
     private Gee.SortedSet<Email> date_descending = new Collection.FixedTreeSet<Email>(
         Geary.Email.compare_date_descending);
     
+    // by storing all paths for each EmailIdentifier, can lookup without blocking
+    Gee.HashMultiMap<Geary.EmailIdentifier, Geary.FolderPath> path_map = new Gee.HashMultiMap<
+        Geary.EmailIdentifier, Geary.FolderPath>();
+    
     /**
      * Fired when email has been added to this conversation.
      */
@@ -46,7 +50,10 @@ public class Geary.App.Conversation : BaseObject {
         convnum = next_convnum++;
         this.owner = owner;
         lowest_id = null;
+        
         owner.email_flags_changed.connect(on_email_flags_changed);
+        owner.folder.account.email_discovered.connect(on_email_discovered);
+        owner.folder.account.email_removed.connect(on_email_removed);
     }
     
     ~Conversation() {
@@ -54,8 +61,11 @@ public class Geary.App.Conversation : BaseObject {
     }
     
     internal void clear_owner() {
-        if (owner != null)
+        if (owner != null) {
             owner.email_flags_changed.disconnect(on_email_flags_changed);
+            owner.folder.account.email_discovered.disconnect(on_email_discovered);
+            owner.folder.account.email_removed.disconnect(on_email_removed);
+        }
         
         owner = null;
     }
@@ -89,18 +99,40 @@ public class Geary.App.Conversation : BaseObject {
     /**
      * Returns all the email in the conversation sorted according to the specifier.
      */
-    public Gee.List<Geary.Email> get_emails(Ordering ordering) {
+    public Gee.List<Geary.Email> get_emails(Ordering ordering, bool only_in_current_folder = false) {
+        Gee.List<Geary.Email> list;
         switch (ordering) {
             case Ordering.DATE_ASCENDING:
-                return Collection.to_array_list<Email>(date_ascending);
+                list = Collection.to_array_list<Email>(date_ascending);
+            break;
             
             case Ordering.DATE_DESCENDING:
-                return Collection.to_array_list<Email>(date_descending);
+                list = Collection.to_array_list<Email>(date_descending);
+            break;
             
             case Ordering.NONE:
             default:
-                return Collection.to_array_list<Email>(emails.values);
+                list = Collection.to_array_list<Email>(emails.values);
+            break;
         }
+        
+        if (!only_in_current_folder)
+            return list;
+        
+        // remove emails not in current folder
+        Gee.Iterator<Geary.Email> iter = list.iterator();
+        while (iter.next()) {
+            if (!is_in_current_folder(iter.get().id))
+                iter.remove();
+        }
+        
+        return list;
+    }
+    
+    public bool is_in_current_folder(Geary.EmailIdentifier id) {
+        Gee.Collection<Geary.FolderPath>? paths = path_map.get(id);
+        
+        return (paths != null && paths.contains(owner.folder.path));
     }
     
     /**
@@ -130,8 +162,11 @@ public class Geary.App.Conversation : BaseObject {
     /**
      * Add the email to the conversation if it wasn't already in there.  Return
      * whether it was added.
+     *
+     * known_paths should contain all the known FolderPaths this email is contained in.
+     * Conversation will monitor Account for additions and removals as they occur.
      */
-    internal bool add(Email email) {
+    internal bool add(Email email, Gee.Collection<Geary.FolderPath> known_paths) {
         if (emails.has_key(email.id))
             return false;
         
@@ -143,7 +178,11 @@ public class Geary.App.Conversation : BaseObject {
         if (ancestors != null)
             message_ids.add_all(ancestors);
         
+        foreach (Geary.FolderPath path in known_paths)
+            path_map.set(email.id, path);
+        
         check_lowest_id(email.id);
+        
         appended(email);
         
         return true;
@@ -154,6 +193,7 @@ public class Geary.App.Conversation : BaseObject {
         emails.unset(email.id);
         date_ascending.remove(email);
         date_descending.remove(email);
+        path_map.remove_all(email.id);
         
         Gee.Set<RFC822.MessageID> removed_message_ids = new Gee.HashSet<RFC822.MessageID>();
         
@@ -240,19 +280,19 @@ public class Geary.App.Conversation : BaseObject {
     /**
      * Returns the earliest (first sent) email in the Conversation.
      */
-    public Geary.Email? get_earliest_email() {
-        return get_single_email(Ordering.DATE_ASCENDING);
-   }
+    public Geary.Email? get_earliest_email(bool only_in_current_folder = false) {
+        return get_single_email(Ordering.DATE_ASCENDING, only_in_current_folder);
+    }
     
     /**
      * Returns the latest (most recently sent) email in the Conversation.
      */
-    public Geary.Email? get_latest_email() {
-        return get_single_email(Ordering.DATE_DESCENDING);
+    public Geary.Email? get_latest_email(bool only_in_current_folder = false) {
+        return get_single_email(Ordering.DATE_DESCENDING, only_in_current_folder);
     }
     
-    private Geary.Email? get_single_email(Ordering ordering) {
-        return Geary.Collection.get_first<Geary.Email>(get_emails(ordering));
+    private Geary.Email? get_single_email(Ordering ordering, bool only_in_current_folder) {
+        return Geary.Collection.get_first<Geary.Email>(get_emails(ordering, only_in_current_folder));
     }
     
     /**
@@ -288,6 +328,20 @@ public class Geary.App.Conversation : BaseObject {
     private void on_email_flags_changed(Conversation conversation, Geary.Email email) {
         if (conversation == this)
             email_flags_changed(email);
+    }
+    
+    private void on_email_discovered(Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids) {
+        // only add to the internal map if a part of this Conversation
+        foreach (Geary.EmailIdentifier id in ids) {
+            if (emails.has_key(id))
+                path_map.set(id, folder.path);
+        }
+    }
+    
+    private void on_email_removed(Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids) {
+        // To be forgiving, simply remove id without checking if it's a part of this Conversation
+        foreach (Geary.EmailIdentifier id in ids)
+            path_map.remove(id, folder.path);
     }
     
     public string to_string() {

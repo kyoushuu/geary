@@ -84,8 +84,9 @@ private class Geary.App.ConversationSet : BaseObject {
      * existing email), or the conversation it was added to.  Return in
      * added_conversation whether a new conversation was created.
      */
-    public Conversation? add_email(Geary.Email email, ConversationMonitor monitor,
-        Geary.FolderPath? preferred_folder_path, out bool added_conversation) {
+    private Conversation? add_email(Geary.Email email, ConversationMonitor monitor,
+        Geary.FolderPath? preferred_folder_path, Gee.Collection<Geary.FolderPath>? known_paths,
+        out bool added_conversation) {
         added_conversation = false;
         
         if (email_id_map.has_key(email.id))
@@ -109,7 +110,7 @@ private class Geary.App.ConversationSet : BaseObject {
             added_conversation = true;
         }
         
-        if (!conversation.add(email)) {
+        if (!conversation.add(email, known_paths)) {
             error("Couldn't add duplicate email %s to conversation %s",
                 email.id.to_string(), conversation.to_string());
         }
@@ -127,10 +128,17 @@ private class Geary.App.ConversationSet : BaseObject {
         return conversation;
     }
     
-    public void add_all_emails(Gee.Collection<Geary.Email> emails,
+    public async void add_all_emails_async(Gee.Collection<Geary.Email> emails,
         ConversationMonitor monitor, Geary.FolderPath? preferred_folder_path,
         out Gee.Collection<Conversation> added,
-        out Gee.MultiMap<Conversation, Geary.Email> appended) {
+        out Gee.MultiMap<Conversation, Geary.Email> appended, Cancellable? cancellable) throws Error {
+        Gee.Map<Geary.EmailIdentifier, Geary.Email>? id_map = Email.emails_to_map(emails);
+        Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? id_to_path = null;
+        if (id_map != null) {
+            id_to_path = yield monitor.folder.account.get_containing_folders_async(id_map.keys,
+            cancellable);
+        }
+        
         Gee.HashSet<Conversation> _added = new Gee.HashSet<Conversation>();
         Gee.HashMultiMap<Conversation, Geary.Email> _appended
             = new Gee.HashMultiMap<Conversation, Geary.Email>();
@@ -138,7 +146,9 @@ private class Geary.App.ConversationSet : BaseObject {
         foreach (Geary.Email email in emails) {
             bool added_conversation;
             Conversation? conversation = add_email(
-                email, monitor, preferred_folder_path, out added_conversation);
+                email, monitor, preferred_folder_path,
+                (id_to_path != null) ? id_to_path.get(email.id) : null,
+                out added_conversation);
             
             if (conversation == null)
                 continue;

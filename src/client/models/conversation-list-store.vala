@@ -6,10 +6,10 @@
  
 public class ConversationListStore : Gtk.ListStore {
     public const Geary.Email.Field REQUIRED_FIELDS =
-        Geary.Email.Field.ENVELOPE | Geary.Email.Field.FLAGS;
+        Geary.Email.Field.ENVELOPE | Geary.Email.Field.FLAGS | Geary.Email.Field.PROPERTIES;
     
     public const Geary.Email.Field WITH_PREVIEW_FIELDS =
-        Geary.Email.Field.ENVELOPE | Geary.Email.Field.FLAGS | Geary.Email.Field.PREVIEW;
+        Geary.Email.Field.ENVELOPE | Geary.Email.Field.FLAGS | Geary.Email.Field.PROPERTIES | Geary.Email.Field.PREVIEW;
     
     public enum Column {
         CONVERSATION_DATA,
@@ -219,7 +219,20 @@ public class ConversationListStore : Gtk.ListStore {
             compare_conversation_descending);
         sorted_conversations.add_all(conversation_monitor.get_conversations());
         foreach (Geary.App.Conversation conversation in sorted_conversations) {
-            Geary.Email? need_preview = conversation.get_latest_email();
+            // find oldest unread message for the preview
+            Geary.Email? need_preview = null;
+            foreach (Geary.Email email in conversation.get_emails(Geary.App.Conversation.Ordering.DATE_ASCENDING)) {
+                if (email.email_flags.is_unread()) {
+                    need_preview = email;
+                    
+                    break;
+                }
+            }
+            
+            // if all are read, use newest in-folder message
+            if (need_preview == null)
+                need_preview = conversation.get_latest_email(true);
+            
             if (need_preview == null)
                 continue;
             
@@ -428,6 +441,11 @@ public class ConversationListStore : Gtk.ListStore {
     
     private void on_email_flags_changed(Geary.App.Conversation conversation) {
         refresh_flags(conversation);
+        
+        // refresh previews because the oldest unread message is displayed as the preview, and if
+        // that's changed, need to change the preview
+        // TODO: need support code to load preview for single conversation, not scan all
+        refresh_previews_async.begin(conversation_monitor);
     }
     
     private int sort_by_date(Gtk.TreeModel model, Gtk.TreeIter aiter, Gtk.TreeIter biter) {

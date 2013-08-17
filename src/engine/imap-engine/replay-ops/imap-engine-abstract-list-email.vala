@@ -172,7 +172,7 @@ private abstract class Geary.ImapEngine.AbstractListEmail : Geary.ImapEngine.Sen
         
         // signal
         if (created_ids.size > 0)
-            owner.notify_local_expansion(created_ids);
+            owner.notify_email_discovered(created_ids);
         
         return ReplayOperation.Status.COMPLETED;
     }

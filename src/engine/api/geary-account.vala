@@ -78,6 +78,12 @@ public interface Geary.Account : BaseObject {
         Gee.Collection<Geary.EmailIdentifier> ids);
     
     /**
+     * Fired when one or more emails have been discovered (added) to the Folder, but not necessarily
+     * appended (i.e. old email pulled down due to user request or background fetching).
+     */
+    public signal void email_discovered(Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids);
+    
+    /**
      * Fired when the supplied email flags have changed from any folder.
      */
     public signal void email_flags_changed(Geary.Folder folder,
@@ -130,9 +136,21 @@ public interface Geary.Account : BaseObject {
      */
     protected abstract void notify_email_removed(Geary.Folder folder, Gee.Collection<Geary.EmailIdentifier> ids);
     
+    /**
+     * Signal notification method for subclasses to use.
+     */
     protected abstract void notify_email_locally_complete(Geary.Folder folder,
         Gee.Collection<Geary.EmailIdentifier> ids);
     
+    /**
+     * Signal notification method for subclasses to use.
+     */
+    protected abstract void notify_email_discovered(Geary.Folder folder,
+        Gee.Collection<Geary.EmailIdentifier> ids);
+    
+    /**
+     * Signal notification method for subclasses to use.
+     */
     protected abstract void notify_email_flags_changed(Geary.Folder folder,
         Gee.Map<Geary.EmailIdentifier, Geary.EmailFlags> flag_map);
     

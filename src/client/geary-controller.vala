@@ -94,6 +94,9 @@ public class GearyController : Geary.BaseObject {
     private LoginDialog? login_dialog = null;
     private UpgradeDialog upgrade_dialog;
     
+    // List of windows we're waiting to close before Geary closes.
+    private Gee.List<ComposerWindow> waiting_to_close = new Gee.ArrayList<ComposerWindow>();
+    
     /**
      * Fired when the currently selected account has changed.
      */
@@ -159,6 +162,7 @@ public class GearyController : Geary.BaseObject {
         
         // Connect to various UI signals.
         main_window.conversation_list_view.conversations_selected.connect(on_conversations_selected);
+        main_window.conversation_list_view.conversation_activated.connect(on_conversation_activated);
         main_window.conversation_list_view.load_more.connect(on_load_more);
         main_window.conversation_list_view.mark_conversation.connect(on_mark_conversation);
         main_window.conversation_list_view.visible_conversations_changed.connect(on_visible_conversations_changed);
@@ -175,7 +179,8 @@ public class GearyController : Geary.BaseObject {
         main_window.conversation_viewer.mark_messages.connect(on_conversation_viewer_mark_messages);
         main_window.conversation_viewer.open_attachment.connect(on_open_attachment);
         main_window.conversation_viewer.save_attachments.connect(on_save_attachments);
-
+        main_window.conversation_viewer.edit_draft.connect(on_edit_draft);
+        
         new_messages_monitor = new NewMessagesMonitor(should_notify_new_messages);
         main_window.folder_list.set_new_messages_monitor(new_messages_monitor);
         
@@ -867,6 +872,20 @@ public class GearyController : Geary.BaseObject {
         conversations_selected(selected_conversations, current_folder);
     }
     
+    private void on_conversation_activated(Geary.App.Conversation activated) {
+        // Currently activating a conversation is only available for drafts folders.
+        if (current_folder == null || current_folder.special_folder_type !=
+            Geary.SpecialFolderType.DRAFTS)
+            return;
+        
+        // TODO: Determine how to map between conversations and drafts correctly.
+        on_edit_draft(activated.get_latest_email(true));
+    }
+    
+    private void on_edit_draft(Geary.Email draft) {
+        create_compose_window(ComposerWindow.ComposeType.NEW_MESSAGE, draft, null, true);
+    }
+    
     private void on_special_folder_type_changed(Geary.Folder folder, Geary.SpecialFolderType old_type,
         Geary.SpecialFolderType new_type) {
         main_window.folder_list.remove_folder(folder);
@@ -1356,17 +1375,48 @@ public class GearyController : Geary.BaseObject {
     }
     
     private bool close_composition_windows() {
-        // We want to allow the user to cancel a quit when they have unsent text.
+        Gee.List<ComposerWindow> composers_to_destroy = new Gee.ArrayList<ComposerWindow>();
+        bool quit_cancelled = false;
         
-        // We are modifying the list as we go, so we can't simply iterate through it.
-        while (composer_windows.size > 0) {
-            ComposerWindow composer_window = composer_windows.first();
-            if (!composer_window.should_close())
-                return false;
+        // If there's composer windows open, give the user a chance to save or cancel.
+        foreach(ComposerWindow cw in composer_windows) {
+            // Check if we should close the window immediately, or if we need to wait.
+            if (!cw.should_close()) {
+                if (cw.delayed_close) {
+                    // Window is currently busy saving.
+                    waiting_to_close.add(cw);
+                    
+                    continue;
+                } else {
+                    // User cancelled operation.
+                    quit_cancelled = true;
+                    
+                    break;
+                }
+            }
             
-            // This will remove composer_window from composer_windows.
-            // See GearyController.on_composer_window_destroy.
-            composer_window.destroy();
+            // Hide any existing composer windows for the moment; actually deleting the windows
+            // will result in their removal from composer_windows, which could crash this loop.
+            composers_to_destroy.add(cw);
+            cw.hide();
+        }
+        
+        // Safely destroy windows.
+        foreach(ComposerWindow cw in composers_to_destroy)
+            cw.destroy();
+        
+        // If we cancelled the quit we can bail here.
+        if (quit_cancelled) {
+            waiting_to_close.clear();
+            
+            return false;
+        }
+        
+        // If there's still windows saving, we can't exit just yet.  Hide the main window and wait.
+        if (waiting_to_close.size > 0) {
+            main_window.hide();
+            
+            return false;
         }
         
         // If we deleted all composer windows without the user cancelling, we can exit.
@@ -1374,17 +1424,33 @@ public class GearyController : Geary.BaseObject {
     }
     
     private void create_compose_window(ComposerWindow.ComposeType compose_type,
-        Geary.Email? referred = null, string? mailto = null) {
+        Geary.Email? referred = null, string? mailto = null, bool is_draft = false) {
+        create_compose_window_async.begin(compose_type, referred, mailto, is_draft);
+    }
+    
+    private async void create_compose_window_async(ComposerWindow.ComposeType compose_type,
+        Geary.Email? referred = null, string? mailto = null, bool is_draft = false) {
         if (current_account == null)
             return;
         
         ComposerWindow window;
-        if (mailto != null)
+        if (mailto != null) {
             window = new ComposerWindow.from_mailto(current_account, mailto);
-        else
-            window = new ComposerWindow(current_account, compose_type, referred);
+        } else {
+            Geary.Email? full = null;
+            if (referred != null) {
+                try {
+                    full = yield current_folder.fetch_email_async(referred.id,
+                        Geary.ComposedEmail.REQUIRED_REPLY_FIELDS, Geary.Folder.ListFlags.NONE,
+                        cancellable_folder);
+                } catch (Error e) {
+                    warning("Could not load full message: %s", e.message);
+                }
+            }
+            
+            window = new ComposerWindow(current_account, compose_type, full, is_draft);
+        }
         window.set_position(Gtk.WindowPosition.CENTER);
-        window.send.connect(on_send);
         
         // We want to keep track of the open composer windows, so we can allow the user to cancel
         // an exit without losing their data.
@@ -1396,6 +1462,12 @@ public class GearyController : Geary.BaseObject {
     
     private void on_composer_window_destroy(Gtk.Widget sender) {
         composer_windows.remove((ComposerWindow) sender);
+        
+        if (waiting_to_close.remove((ComposerWindow) sender)) {
+            // If we just removed the last window in the waiting to close list, it's time to exit!
+            if (waiting_to_close.size == 0)
+                GearyApplication.instance.exit();
+        }
     }
     
     private void on_new_message() {
@@ -1506,11 +1578,6 @@ public class GearyController : Geary.BaseObject {
     private void on_zoom_normal() {
         main_window.conversation_viewer.web_view.zoom_level = 1.0f;
     }
-    
-    private void on_send(ComposerWindow composer_window) {
-        composer_window.account.send_email_async.begin(composer_window.get_composed_email());
-        composer_window.destroy();
-    }
 
     private void on_sent(Geary.RFC822.Message rfc822) {
         NotificationBubble.play_sound("message-sent-email");
@@ -1544,9 +1611,14 @@ public class GearyController : Geary.BaseObject {
     public void enable_message_buttons(bool sensitive) {
         update_tooltips();
         
-        GearyApplication.instance.actions.get_action(ACTION_REPLY_TO_MESSAGE).sensitive = sensitive;
-        GearyApplication.instance.actions.get_action(ACTION_REPLY_ALL_MESSAGE).sensitive = sensitive;
-        GearyApplication.instance.actions.get_action(ACTION_FORWARD_MESSAGE).sensitive = sensitive;
+        // No reply/forward in drafts folder.
+        bool respond_sensitive = sensitive;
+        if (current_folder != null && current_folder.special_folder_type == Geary.SpecialFolderType.DRAFTS)
+            respond_sensitive = false;
+        
+        GearyApplication.instance.actions.get_action(ACTION_REPLY_TO_MESSAGE).sensitive = respond_sensitive;
+        GearyApplication.instance.actions.get_action(ACTION_REPLY_ALL_MESSAGE).sensitive = respond_sensitive;
+        GearyApplication.instance.actions.get_action(ACTION_FORWARD_MESSAGE).sensitive = respond_sensitive;
         GearyApplication.instance.actions.get_action(ACTION_DELETE_MESSAGE).sensitive = sensitive
             && ((current_folder is Geary.FolderSupport.Remove) || (current_folder is Geary.FolderSupport.Archive));
         

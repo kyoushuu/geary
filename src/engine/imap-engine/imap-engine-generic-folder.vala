@@ -47,18 +47,6 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
     private ReplayQueue? replay_queue = null;
     private int remote_count = -1;
     
-    /**
-     * Indicates new messages have been added to the local store via vector expansion.
-     *
-     * This does ''not'' necessarily mean the messages are "new" (i.e. recently arrived), merely
-     * that a request was made for email not in the database and it's now been added.
-     *
-     * @see appended
-     * @see locally_appended
-     */
-    public virtual signal void local_expansion(Gee.Collection<Geary.EmailIdentifier> ids) {
-    }
-    
     public GenericFolder(GenericAccount account, Imap.Account remote, ImapDB.Account local,
         ImapDB.Folder local_folder, SpecialFolderType special_folder_type) {
         _account = account;
@@ -81,10 +69,6 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
             warning("Folder %s destroyed without closing", to_string());
         
         local_folder.email_complete.disconnect(on_email_complete);
-    }
-    
-    internal virtual void notify_local_expansion(Gee.Collection<Geary.EmailIdentifier> ids) {
-        local_expansion(ids);
     }
     
     public void set_special_folder_type(SpecialFolderType new_type) {
@@ -459,7 +443,7 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
             debug("Notifying of %d locally appended emails since %s last seen", all_locally_appended_ids.size,
                 to_string());
             notify_email_locally_appended(all_locally_appended_ids);
-            notify_local_expansion(all_locally_appended_ids);
+            notify_email_discovered(all_locally_appended_ids);
         }
         
         // notify additions
@@ -779,7 +763,7 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         
         if (created.size > 0) {
             notify_email_locally_appended(created);
-            notify_local_expansion(created);
+            notify_email_discovered(created);
         }
         
         if (changed)
@@ -1149,6 +1133,39 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
         }
         
         return earliest_id;
+    }
+    
+    internal async Geary.EmailIdentifier create_email_async(RFC822.Message rfc822, Geary.EmailFlags? flags,
+        DateTime? date_received, Geary.EmailIdentifier? id, Cancellable? cancellable = null) throws Error {
+        check_open("create_email_async");
+        if (id != null)
+            check_id("create_email_async", id);
+        
+        // TODO: Move this into a ReplayQueue operation
+        yield wait_for_open_async(cancellable);
+        
+        // use IMAP APPEND command on remote folders, which doesn't require opening a folder
+        Geary.EmailIdentifier? ret = yield remote_folder.create_email_async(rfc822, flags,
+            date_received, cancellable);
+        if (ret != null) {
+            // TODO: need to prevent gaps that may occur here
+            Geary.Email created = new Geary.Email(ret);
+            Gee.Map<Geary.Email, bool> results = yield local_folder.create_or_merge_email_async(
+                new Collection.SingleItem<Geary.Email>(created), cancellable);
+            if (results.size > 0)
+                ret = Collection.get_first<Geary.Email>(results.keys).id;
+            else
+                ret = null;
+        }
+        
+        // Remove old message.
+        if (id != null) {
+            Geary.FolderSupport.Remove? remove_folder = this as Geary.FolderSupport.Remove;
+            if (remove_folder != null)
+                yield remove_folder.remove_single_email_async(id, cancellable);
+        }
+        
+        return ret;
     }
 }
 

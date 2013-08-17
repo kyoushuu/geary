@@ -39,7 +39,7 @@ private class Geary.ImapEngine.EmailPrefetcher : Object {
         
         folder.opened.connect(on_opened);
         folder.closed.connect(on_closed);
-        folder.local_expansion.connect(on_local_expansion);
+        folder.email_discovered.connect(on_local_expansion);
     }
     
     ~EmailPrefetcher() {
@@ -48,7 +48,7 @@ private class Geary.ImapEngine.EmailPrefetcher : Object {
         
         folder.opened.disconnect(on_opened);
         folder.closed.disconnect(on_closed);
-        folder.local_expansion.disconnect(on_local_expansion);
+        folder.email_discovered.disconnect(on_local_expansion);
     }
     
     private void on_opened(Geary.Folder.OpenState open_state) {

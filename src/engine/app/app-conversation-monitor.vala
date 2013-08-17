@@ -494,7 +494,7 @@ public class Geary.App.ConversationMonitor : BaseObject {
     
     private async void process_email_async(Gee.Collection<Geary.Email>? emails, ProcessJobContext job) {
         if (emails == null || emails.size == 0) {
-            process_email_complete(job);
+            yield process_email_complete_async(job);
             return;
         }
         
@@ -556,7 +556,7 @@ public class Geary.App.ConversationMonitor : BaseObject {
     private async void expand_conversations_async(Gee.Set<RFC822.MessageID> needed_message_ids,
         ProcessJobContext job) {
         if (needed_message_ids.size == 0) {
-            process_email_complete(job);
+            yield process_email_complete_async(job);
             return;
         }
         
@@ -578,7 +578,7 @@ public class Geary.App.ConversationMonitor : BaseObject {
         } catch (Error err) {
             debug("Unable to search local mail for conversations: %s", err.message);
             
-            process_email_complete(job);
+            yield process_email_complete_async(job);
             return;
         }
         
@@ -604,10 +604,17 @@ public class Geary.App.ConversationMonitor : BaseObject {
             folder.to_string(), needed_message_ids.size, needed_messages.size);
     }
     
-    private void process_email_complete(ProcessJobContext job) {
+    private async void process_email_complete_async(ProcessJobContext job) {
         Gee.Collection<Geary.App.Conversation> added;
         Gee.MultiMap<Geary.App.Conversation, Geary.Email> appended;
-        conversations.add_all_emails(job.emails.values, this, folder.path, out added, out appended);
+        try {
+            yield conversations.add_all_emails_async(job.emails.values, this, folder.path, out added, out appended,
+                null);
+        } catch (Error err) {
+            debug("Unable to add emails to conversation: %s", err.message);
+            
+            // fall-through
+        }
         
         if (added.size > 0)
             notify_conversations_added(added);

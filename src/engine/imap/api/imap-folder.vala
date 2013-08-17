@@ -261,13 +261,12 @@ private class Geary.Imap.Folder : BaseObject {
     }
     
     // All commands must executed inside the cmd_mutex; returns FETCH or STORE results
-    private async void exec_commands_async(Gee.Collection<Command> cmds,
+    private async Gee.Map<Command, StatusResponse>? exec_commands_async(Gee.Collection<Command> cmds,
         out Gee.HashMap<SequenceNumber, FetchedData>? fetched,
         out Gee.TreeSet<Imap.UID>? search_results, Cancellable? cancellable) throws Error {
         int token = yield cmd_mutex.claim_async(cancellable);
-        
-        // execute commands with mutex locked
         Gee.Map<Command, StatusResponse>? responses = null;
+        // execute commands with mutex locked
         Error? err = null;
         try {
             responses = yield session.send_multiple_commands_async(cmds, cancellable);
@@ -300,6 +299,8 @@ private class Geary.Imap.Folder : BaseObject {
         assert(responses != null);
         foreach (Command cmd in responses.keys)
             throw_on_failed_status(responses.get(cmd), cmd);
+        
+        return responses;
     }
     
     private void throw_on_failed_status(StatusResponse response, Command cmd) throws Error {
@@ -837,6 +838,40 @@ private class Geary.Imap.Folder : BaseObject {
         }
         
         return email;
+    }
+    
+    // Returns a no-message-id ImapDB.EmailIdentifier with the UID stored in it.
+    public async Geary.EmailIdentifier? create_email_async(RFC822.Message message, Geary.EmailFlags? flags,
+        DateTime? date_received, Cancellable? cancellable) throws Error {
+        check_open();
+        
+        MessageFlags? msg_flags = null;
+        if (flags != null) {
+            Imap.EmailFlags imap_flags = Imap.EmailFlags.from_api_email_flags(flags);
+            msg_flags = imap_flags.message_flags;
+        }
+        
+        InternalDate? internaldate = null;
+        if (date_received != null)
+            internaldate = new InternalDate.from_date_time(date_received);
+        
+        AppendCommand cmd = new AppendCommand(new MailboxSpecifier.from_folder_path(path, null),
+            msg_flags, internaldate, message.get_network_buffer(false));
+        
+        Gee.Map<Command, StatusResponse> responses = yield exec_commands_async(
+            new Collection.SingleItem<AppendCommand>(cmd), null, null, cancellable);
+        
+        // Grab the response and parse out the UID, if available.
+        StatusResponse response = responses.get(cmd);
+        if (response.status == Status.OK && response.response_code != null &&
+            response.response_code.get_response_code_type().is_value("appenduid")) {
+            UID new_id = new UID(response.response_code.get_as_string(2).as_int());
+            
+            return new ImapDB.EmailIdentifier.no_message_id(new_id);
+        }
+        
+        // We didn't get a UID back from the server.
+        return null;
     }
     
     private bool required_but_not_set(Geary.Email.Field check, Geary.Email.Field users_fields, Geary.Email email) {

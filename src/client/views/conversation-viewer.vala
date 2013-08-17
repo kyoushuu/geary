@@ -91,7 +91,10 @@ public class ConversationViewer : Gtk.Box {
 
     // Fired when the user wants to save one or more attachments.
     public signal void save_attachments(Gee.List<Geary.Attachment> attachment);
-
+    
+    // Fired when the user clicks the edit draft button.
+    public signal void edit_draft(Geary.Email message);
+    
     // List of emails in this view.
     public Gee.TreeSet<Geary.Email> messages { get; private set; default = 
         new Geary.Collection.FixedTreeSet<Geary.Email>(Geary.Email.compare_date_ascending); }
@@ -311,7 +314,7 @@ public class ConversationViewer : Gtk.Box {
         // Add messages.
         if (messages_to_add != null) {
             foreach (Geary.Email email in messages_to_add)
-                add_message(email);
+                add_message(email, conversation.is_in_current_folder(email.id));
         }
         
         if (current_folder is Geary.SearchFolder) {
@@ -398,12 +401,14 @@ public class ConversationViewer : Gtk.Box {
         old_cancellable.cancel();
     }
     
-    private void on_conversation_appended(Geary.Email email) {
-        on_conversation_appended_async.begin(email, on_conversation_appended_complete);
+    private void on_conversation_appended(Geary.App.Conversation conversation, Geary.Email email) {
+        on_conversation_appended_async.begin(conversation, email, on_conversation_appended_complete);
     }
     
-    private async void on_conversation_appended_async(Geary.Email email) throws Error {
-        add_message(yield fetch_full_message_async(email, cancellable_fetch));
+    private async void on_conversation_appended_async(Geary.App.Conversation conversation,
+        Geary.Email email) throws Error {
+        add_message(yield fetch_full_message_async(email, cancellable_fetch),
+            conversation.is_in_current_folder(email.id));
     }
     
     private void on_conversation_appended_complete(Object? source, AsyncResult result) {
@@ -418,7 +423,7 @@ public class ConversationViewer : Gtk.Box {
         remove_message(email);
     }
     
-    private void add_message(Geary.Email email) {
+    private void add_message(Geary.Email email, bool is_in_folder) {
         // Make sure the message container is showing and the multi-message counter hidden.
         set_mode(DisplayMode.CONVERSATION);
         
@@ -494,6 +499,19 @@ public class ConversationViewer : Gtk.Box {
         // Add classes according to the state of the email.
         update_flags(email);
         
+        // Edit draft button for drafts folder.
+        if (in_drafts_folder() && is_in_folder) {
+            WebKit.DOM.HTMLElement draft_edit_container = Util.DOM.select(div_message, ".draft_edit");
+            WebKit.DOM.HTMLElement draft_edit_button =
+                Util.DOM.select(div_message, ".draft_edit_button");
+            try {
+                draft_edit_container.set_attribute("style", "display:block");
+                draft_edit_button.set_inner_html(_("Edit Draft"));
+            } catch (Error e) {
+                warning("Error setting draft button: %s", e.message);
+            }
+        }
+        
         // Add animation class after other classes set, to avoid initial animation.
         Idle.add(() => {
             try {
@@ -511,6 +529,7 @@ public class ConversationViewer : Gtk.Box {
         bind_event(web_view, ".email_container .menu", "click", (Callback) on_menu_clicked, this);
         bind_event(web_view, ".email_container .starred", "click", (Callback) on_unstar_clicked, this);
         bind_event(web_view, ".email_container .unstarred", "click", (Callback) on_star_clicked, this);
+        bind_event(web_view, ".email_container .draft_edit .button", "click", (Callback) on_draft_edit_menu, this);
         bind_event(web_view, ".header .field .value", "click", (Callback) on_value_clicked, this);
         bind_event(web_view, ".email:not(:only-of-type) .header_container, .email .email .header_container","click", (Callback) on_body_toggle_clicked, this);
         bind_event(web_view, ".email .compressed_note", "click", (Callback) on_body_toggle_clicked, this);
@@ -1120,6 +1139,17 @@ public class ConversationViewer : Gtk.Box {
         return true;
     }
     
+    private static void on_draft_edit_menu(WebKit.DOM.Element element, WebKit.DOM.Event event,
+        ConversationViewer conversation_viewer) {
+        event.stop_propagation();
+        
+        Geary.Email? email = conversation_viewer.get_email_from_element(element);
+        if (email == null)
+            return;
+        
+        conversation_viewer.edit_draft(email);
+    }
+    
     /*
      * Test whether text looks like a URI that leads somewhere other than href.  The text
      * will have a scheme prepended if it doesn't already have one, and the short versions
@@ -1336,23 +1366,27 @@ public class ConversationViewer : Gtk.Box {
             menu.append(new Gtk.SeparatorMenuItem());
         }
         
-        // Reply to a message.
-        Gtk.MenuItem reply_item = new Gtk.MenuItem.with_mnemonic(_("_Reply"));
-        reply_item.activate.connect(() => reply_to_message(email));
-        menu.append(reply_item);
+        if (!in_drafts_folder()) {
+            // Reply to a message.
+            Gtk.MenuItem reply_item = new Gtk.MenuItem.with_mnemonic(_("_Reply"));
+            reply_item.activate.connect(() => reply_to_message(email));
+            menu.append(reply_item);
 
-        // Reply to all on a message.
-        Gtk.MenuItem reply_all_item = new Gtk.MenuItem.with_mnemonic(_("Reply to _All"));
-        reply_all_item.activate.connect(() => reply_all_message(email));
-        menu.append(reply_all_item);
+            // Reply to all on a message.
+            Gtk.MenuItem reply_all_item = new Gtk.MenuItem.with_mnemonic(_("Reply to _All"));
+            reply_all_item.activate.connect(() => reply_all_message(email));
+            menu.append(reply_all_item);
 
-        // Forward a message.
-        Gtk.MenuItem forward_item = new Gtk.MenuItem.with_mnemonic(_("_Forward"));
-        forward_item.activate.connect(() => forward_message(email));
-        menu.append(forward_item);
-
-        // Separator.
-        menu.append(new Gtk.SeparatorMenuItem());
+            // Forward a message.
+            Gtk.MenuItem forward_item = new Gtk.MenuItem.with_mnemonic(_("_Forward"));
+            forward_item.activate.connect(() => forward_message(email));
+            menu.append(forward_item);
+        }
+        
+        if (menu.get_children().length() > 0) {
+            // Separator.
+            menu.append(new Gtk.SeparatorMenuItem());
+        }
         
         // Mark as read/unread.
         if (email.is_unread().to_boolean(false)) {
@@ -1856,6 +1890,11 @@ public class ConversationViewer : Gtk.Box {
         } catch (Error e) {
             debug("Error updating counter: %s", e.message);
         }
+    }
+    
+    private bool in_drafts_folder() {
+        return current_folder != null && current_folder.special_folder_type
+            == Geary.SpecialFolderType.DRAFTS;
     }
 }
 

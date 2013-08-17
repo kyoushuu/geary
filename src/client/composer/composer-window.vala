@@ -14,6 +14,9 @@ public class ComposerWindow : Gtk.Window {
     }
     
     private const string DEFAULT_TITLE = _("New Message");
+    private const string DRAFT_SAVED_TEXT = _("Saved");
+    private const string DRAFT_SAVING_TEXT = _("Saving draft...");
+    private const string DRAFT_ERROR_TEXT = _("Error saving draft");
     
     private const string ACTION_UNDO = "undo";
     private const string ACTION_REDO = "redo";
@@ -80,12 +83,11 @@ public class ComposerWindow : Gtk.Window {
         </style>
         </head><body id="message-body"></body></html>""";
     
+    private const int DRAFT_TIMEOUT_MSEC = 2000; // 2 seconds
+    
     public const string ATTACHMENT_KEYWORDS_GENERIC = ".doc|.pdf|.xls|.ppt|.rtf|.pps";
     /// A list of keywords, separated by pipe ("|") characters, that suggest an attachment
     public const string ATTACHMENT_KEYWORDS_LOCALIZED = _("attach|enclosed|enclosing|cover letter");
-    
-    // Signal sent when the "Send" button is clicked.
-    public signal void send(ComposerWindow composer);
     
     public Geary.Account account { get; private set; }
     
@@ -129,6 +131,9 @@ public class ComposerWindow : Gtk.Window {
     
     public ComposeType compose_type { get; private set; default = ComposeType.NEW_MESSAGE; }
     
+    // True if composer can't close immediately (i.e. it's saving a draft)
+    public bool delayed_close { get; private set; default = false; }
+    
     private ContactListStore? contact_list_store = null;
     
     private string? body_html = null;
@@ -143,7 +148,7 @@ public class ComposerWindow : Gtk.Window {
     private EmailEntry cc_entry;
     private EmailEntry bcc_entry;
     private Gtk.Entry subject_entry;
-    private Gtk.Button discard_button;
+    private Gtk.Button close_button;
     private Gtk.Button send_button;
     private Gtk.ToggleToolButton menu_button;
     private Gtk.Label message_overlay_label;
@@ -155,6 +160,7 @@ public class ComposerWindow : Gtk.Window {
     private Gtk.Alignment visible_on_attachment_drag_over;
     private Gtk.Widget hidden_on_attachment_drag_over_child;
     private Gtk.Widget visible_on_attachment_drag_over_child;
+    private Gtk.Label draft_save_label;
     
     private Gtk.Menu menu_html;
     private Gtk.Menu menu_plain;
@@ -171,6 +177,11 @@ public class ComposerWindow : Gtk.Window {
     private bool is_attachment_overlay_visible = false;
     private Gee.List<Geary.Attachment>? pending_attachments = null;
     
+    private Geary.FolderSupport.Create? drafts_folder = null;
+    private Geary.EmailIdentifier? draft_id = null;
+    private uint draft_save_timeout_id = 0;
+    private Cancellable cancellable_drafts = new Cancellable();
+    
     private WebKit.WebView editor;
     // We need to keep a reference to the edit-fixer in composer-window, so it doesn't get
     // garbage-collected.
@@ -178,7 +189,7 @@ public class ComposerWindow : Gtk.Window {
     private Gtk.UIManager ui;
     
     public ComposerWindow(Geary.Account account, ComposeType compose_type,
-        Geary.Email? referred = null) {
+        Geary.Email? referred = null, bool is_referred_draft = false) {
         this.account = account;
         this.compose_type = compose_type;
         
@@ -192,8 +203,8 @@ public class ComposerWindow : Gtk.Window {
         button_area.get_style_context().add_class("content-view");
         
         Gtk.Box box = builder.get_object("composer") as Gtk.Box;
-        discard_button = builder.get_object("Discard") as Gtk.Button;
-        discard_button.clicked.connect(on_discard);
+        close_button = builder.get_object("Close") as Gtk.Button;
+        close_button.clicked.connect(on_close);
         send_button = builder.get_object("Send") as Gtk.Button;
         send_button.clicked.connect(on_send);
         add_attachment_button  = builder.get_object("add_attachment_button") as Gtk.Button;
@@ -221,6 +232,7 @@ public class ComposerWindow : Gtk.Window {
         set_entry_completions();
         subject_entry = builder.get_object("subject") as Gtk.Entry;
         Gtk.Alignment message_area = builder.get_object("message area") as Gtk.Alignment;
+        draft_save_label = (Gtk.Label) builder.get_object("draft_save_label");
         actions = builder.get_object("compose actions") as Gtk.ActionGroup;
         // Can only happen after actions exits
         compose_as_html = GearyApplication.instance.config.compose_as_html;
@@ -312,6 +324,15 @@ public class ComposerWindow : Gtk.Window {
                     } catch (Error error) {
                         debug("Error getting message body: %s", error.message);
                     }
+                    
+                    try {
+                        Geary.Folder? draft_folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS);
+                        if (draft_folder != null && is_referred_draft)
+                            draft_id = referred.id;
+                    } catch (Error e) {
+                        debug("Error looking up special folder: %s", e.message);
+                    }
+                    
                     add_attachments(referred.attachments);
                 break;
                 
@@ -352,6 +373,7 @@ public class ComposerWindow : Gtk.Window {
         editor.redo.connect(update_actions);
         editor.selection_changed.connect(update_actions);
         editor.key_press_event.connect(on_key_press);
+        editor.user_changed_contents.connect(reset_draft_timer);
         
         // only do this after setting body_html
         editor.load_string(HTML_BODY, "text/html", "UTF8", "");
@@ -433,6 +455,11 @@ public class ComposerWindow : Gtk.Window {
         chain.append(attachments_box);
         chain.append(button_area);
         box.set_focus_chain(chain);
+        
+        // If there's only one account, open the drafts folder.  If there's more than one account,
+        // the drafts folder will be opened by on_from_changed().
+        if (!from_multiple.visible)
+            open_drafts_folder.begin(cancellable_drafts);
     }
     
     public ComposerWindow.from_mailto(Geary.Account account, string mailto) {
@@ -639,30 +666,40 @@ public class ComposerWindow : Gtk.Window {
     }
     
     public bool should_close() {
-        // TODO: Check if the message was (automatically) saved
-        if (editor.can_undo()) {
-            present();
-            ConfirmationDialog dialog = new ConfirmationDialog(this,
+        if (!editor.can_undo())
+            return true;
+        
+        present();
+        AlertDialog dialog;
+        
+        if (drafts_folder == null) {
+            dialog = new ConfirmationDialog(this,
                 _("Do you want to discard the unsaved message?"), null, Stock._DISCARD);
-            if (dialog.run() != Gtk.ResponseType.OK)
-                return false;
+        } else {
+            dialog = new TernaryConfirmationDialog(this,
+                _("Do you want to discard this message?"), null, Stock._KEEP, Stock._DISCARD,
+                Gtk.ResponseType.CLOSE);
         }
-        return true;
+        
+        Gtk.ResponseType response = dialog.run();
+        if (response == Gtk.ResponseType.CANCEL || response == Gtk.ResponseType.DELETE_EVENT) {
+            return false; // Cancel
+        } else if (response == Gtk.ResponseType.OK) {
+            save_and_exit.begin(); // Save
+            return false;
+        } else {
+            delete_and_exit.begin(); // Discard
+            return false;
+        }
     }
     
     public override bool delete_event(Gdk.EventAny event) {
         return !should_close();
     }
     
-    private void on_discard() {
+    private void on_close() {
         if (should_close())
             destroy();
-    }
-    
-    private void on_close() {
-        // Accelerator <Primary>w was pressed to close the composer window. Do the same as
-        // when clicking the Discard button, at least for now.
-        on_discard();
     }
     
     private bool email_contains_attachment_keywords() {
@@ -734,10 +771,133 @@ public class ComposerWindow : Gtk.Window {
         return true;
     }
     
+    // Sends the current message.
     private void on_send() {
         if (should_send()) {
-            linkify_document(editor.get_dom_document());
-            send(this);
+            on_send_async.begin();
+            destroy();
+        }
+    }
+    
+    // Used internally by on_send()
+    private async void on_send_async() {
+        linkify_document(editor.get_dom_document());
+        
+        // Perform send.
+        try {
+            yield account.send_email_async(get_composed_email());
+        } catch (Error e) {
+            warning("Error sending email: %s", e.message);
+        }
+        
+        yield delete_draft_async();
+    }
+    
+    // Returns the drafts folder for the current From account.
+    private async void open_drafts_folder(Cancellable cancellable) throws Error {
+        yield close_drafts_folder(cancellable);
+        
+        Geary.FolderSupport.Create? folder = account.get_special_folder(Geary.SpecialFolderType.DRAFTS) 
+            as Geary.FolderSupport.Create;
+        
+        if (folder == null)
+            return; // No drafts folder.
+        
+        yield folder.open_async(Geary.Folder.OpenFlags.FAST_OPEN, cancellable);
+        
+        drafts_folder = folder;
+    }
+    
+    private async void close_drafts_folder(Cancellable? cancellable = null) throws Error {
+        if (drafts_folder == null)
+            return;
+        
+        // Close existing folder.
+        yield drafts_folder.close_async(cancellable);
+        drafts_folder = null;
+    }
+    
+    // Save to the draft folder, if available.
+    // Note that drafts are NOT "linkified."
+    private bool save_draft() {
+        save_async.begin();
+        
+        return false;
+    }
+    
+    private async void save_async() {
+        if (drafts_folder == null)
+            return;
+        
+        draft_save_label.label = DRAFT_SAVING_TEXT;
+        draft_save_timeout_id = 0;
+        
+        try {
+            draft_id = yield drafts_folder.create_email_async(new Geary.RFC822.Message.from_composed_email(
+                get_composed_email()), new Geary.EmailFlags(), null, draft_id, null);
+            
+            draft_save_label.label = DRAFT_SAVED_TEXT;
+        } catch (Error e) {
+            warning("Error saving draft: %s", e.message);
+            draft_save_label.label = DRAFT_ERROR_TEXT;
+        }
+    }
+    
+    // Prevents user from editing anything.  Used while waiting for draft to save before exiting window.
+    private void make_gui_insensitive() {
+        // Halt draft timer.
+        if (draft_save_timeout_id != 0)
+            Source.remove(draft_save_timeout_id);
+            
+        // Disable all actions.
+        List<weak Gtk.Action> actions = actions.list_actions();
+        foreach (Gtk.Action a in actions)
+            a.sensitive = false;
+        
+        // Disable buttons.
+        close_button.sensitive = send_button.sensitive = menu_button.sensitive = 
+            add_attachment_button.sensitive = pending_attachments_button.sensitive = false;
+        
+        // Disable editable widgets.
+        editor.sensitive = to_entry.sensitive = cc_entry.sensitive = bcc_entry.sensitive =
+            subject_entry.sensitive = from_multiple.sensitive = false;
+    }
+    
+    private async void save_and_exit() {
+        delayed_close = true;
+        make_gui_insensitive();
+        
+        // Do the save.
+        yield save_async();
+        
+        destroy();
+    }
+    
+    private async void delete_and_exit() {
+        delayed_close = true;
+        make_gui_insensitive();
+        
+        // Do the delete.
+        yield delete_draft_async();
+        
+        destroy();
+    }
+    
+    private async void delete_draft_async(Cancellable? cancellable = null) {
+        if (drafts_folder == null || draft_id == null)
+            return;
+        
+        Geary.FolderSupport.Remove? removable_drafts = drafts_folder as Geary.FolderSupport.Remove;
+        if (removable_drafts == null) {
+            warning("Draft folder does not support remove.\n");
+            
+            return;
+        }
+        
+        try {
+            yield removable_drafts.remove_single_email_async(draft_id);
+        } catch (Error e) {
+            warning("Unable to delete draft: %s", e.message);
         }
     }
     
@@ -870,12 +1030,16 @@ public class ComposerWindow : Gtk.Window {
     private void on_subject_changed() {
         title = Geary.String.is_empty(subject_entry.text.strip()) ? DEFAULT_TITLE :
             subject_entry.text.strip();
+        
+        reset_draft_timer();
     }
     
     private void validate_send_button() {
         send_button.sensitive =
             to_entry.valid_or_empty && cc_entry.valid_or_empty && bcc_entry.valid_or_empty
          && (!to_entry.empty || !cc_entry.empty || !bcc_entry.empty);
+         
+         reset_draft_timer();
     }
     
     private void on_formatting_action(Gtk.Action action) {
@@ -1369,6 +1533,16 @@ public class ComposerWindow : Gtk.Window {
         return false;
     }
     
+    // Resets the draft save timeout.
+    private void reset_draft_timer() {
+        draft_save_label.label = "";
+        if (draft_save_timeout_id != 0)
+            Source.remove(draft_save_timeout_id);
+        
+        if (drafts_folder != null)
+            draft_save_timeout_id = Timeout.add(DRAFT_TIMEOUT_MSEC, save_draft);
+    }
+    
     private void update_actions() {
         // Undo/redo.
         actions.get_action(ACTION_UNDO).sensitive = editor.can_undo();
@@ -1486,11 +1660,15 @@ public class ComposerWindow : Gtk.Window {
                     account = Geary.Engine.instance.get_account_instance(new_account_info);
                     from = new_account_info.get_from().to_rfc822_string();
                     set_entry_completions();
+                    
+                    open_drafts_folder.begin(cancellable_drafts);
                 }
             } catch (Error e) {
                 debug("Error updating account in Composer: %s", e.message);
             }
         }
+        
+        reset_draft_timer();
     }
     
     private void set_entry_completions() {
@@ -1502,6 +1680,10 @@ public class ComposerWindow : Gtk.Window {
         to_entry.completion = new ContactEntryCompletion(contact_list_store);
         cc_entry.completion = new ContactEntryCompletion(contact_list_store);
         bcc_entry.completion = new ContactEntryCompletion(contact_list_store);
+    }
+    
+    public override void destroy() {
+        close_drafts_folder.begin();
     }
 }
 
