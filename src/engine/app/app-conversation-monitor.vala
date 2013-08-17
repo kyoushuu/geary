@@ -607,14 +607,18 @@ public class Geary.App.ConversationMonitor : BaseObject {
     private async void process_email_complete_async(ProcessJobContext job) {
         Gee.Collection<Geary.App.Conversation> added;
         Gee.MultiMap<Geary.App.Conversation, Geary.Email> appended;
+        Gee.Collection<Conversation> removed_due_to_merge;
         try {
             yield conversations.add_all_emails_async(job.emails.values, this, folder.path, out added, out appended,
-                null);
+                out removed_due_to_merge, null);
         } catch (Error err) {
             debug("Unable to add emails to conversation: %s", err.message);
             
             // fall-through
         }
+        
+        foreach (Conversation conversation in removed_due_to_merge)
+            notify_conversation_removed(conversation);
         
         if (added.size > 0)
             notify_conversations_added(added);
