@@ -34,9 +34,5 @@ public class Geary.ImapEngine.GmailSearchFolder : Geary.SearchFolder {
             // to fully trash the message.
             yield email_store.copy_email_async(email_ids, trash_folder.path, cancellable);
         }
-        
-        // HACK: we shouldn't need to do this.  See the note at the bottom of
-        // the base class' implementation.
-        notify_email_removed(email_ids);
     }
 }

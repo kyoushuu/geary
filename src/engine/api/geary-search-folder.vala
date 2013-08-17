@@ -425,12 +425,6 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
                 }
             }
         }
-        
-        // HACK: we should be relying on the normal folder notifications here,
-        // but they're not hooked up for remove (see #7214).  In reality, we
-        // want something like append_new_email_async(), but for removed
-        // emails.  (See also GmailSearchFolder.)
-        notify_email_removed(email_ids);
     }
     
     /**
