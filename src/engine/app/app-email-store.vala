@@ -108,17 +108,6 @@ public class Geary.App.EmailStore : BaseObject {
             emails, cancellable);
     }
     
-    /**
-     * Moves any set of EmailIdentifiers as if they were all in one
-     * Geary.FolderSupport.Move folder.
-     */
-    public async void move_email_async(Gee.Collection<Geary.EmailIdentifier> emails,
-        Geary.FolderPath origin, Geary.FolderPath destination,
-        Cancellable? cancellable = null) throws Error {
-        yield do_folder_operation_async(new Geary.App.MoveOperation(origin, destination),
-            emails, cancellable);
-    }
-    
     private async Gee.HashMap<Geary.FolderPath, Geary.Folder> get_folder_instances_async(
         Gee.Collection<Geary.FolderPath> paths, Cancellable? cancellable) throws Error {
         Gee.HashMap<Geary.FolderPath, Geary.Folder> folders
@@ -133,12 +122,6 @@ public class Geary.App.EmailStore : BaseObject {
     private Geary.FolderPath? next_folder_for_operation(AsyncFolderOperation operation,
         Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids,
         Gee.Map<Geary.FolderPath, Geary.Folder> folders) throws Error {
-        if (operation.restrict_to_folder != null) {
-            if (folders_to_ids.contains(operation.restrict_to_folder))
-                return operation.restrict_to_folder;
-            return null;
-        }
-        
         bool best_is_open = false;
         int best_count = 0;
         Geary.FolderPath? best = null;
@@ -179,6 +162,9 @@ public class Geary.App.EmailStore : BaseObject {
         
         Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? ids_to_folders
             = yield account.get_containing_folders_async(emails, cancellable);
+        if (ids_to_folders == null)
+            return;
+        
         Gee.MultiMap<Geary.FolderPath, Geary.EmailIdentifier> folders_to_ids
             = Geary.Collection.reverse_multi_map<Geary.EmailIdentifier, Geary.FolderPath>(ids_to_folders);
         Gee.HashMap<Geary.FolderPath, Geary.Folder> folders
