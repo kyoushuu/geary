@@ -853,8 +853,8 @@ private class Geary.ImapEngine.GenericFolder : Geary.AbstractFolder, Geary.Folde
             notify_email_count_changed(remote_count, CountChangeReason.REMOVED);
         
         debug("do_replay_remove_message: completed for %s "
-            + "(remote_count=%d local_count=%d new_local_count=%d remote_position=%d local_position=%d marked=%s)",
-            to_string(), remote_count, local_count, new_local_count, remote_position, local_position,
+            + "(remote_count=%d local_count=%d starting local_count=%d remote_position=%d local_position=%d marked=%s)",
+            to_string(), remote_count, new_local_count, local_count, remote_position, local_position,
             marked.to_string());
     }
     

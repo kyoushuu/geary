@@ -813,8 +813,8 @@ private class Geary.ImapDB.Folder : BaseObject, Geary.ReferenceSemantics {
         Cancellable? cancellable) throws Error {
         bool internal_is_marked = false;
         bool was_unread = false;
-        yield db.exec_transaction_async(Db.TransactionType.WO, (cx) => {
-            LocationIdentifier? location = do_get_location_for_id(cx, id, ListFlags.NONE,
+        yield db.exec_transaction_async(Db.TransactionType.RW, (cx) => {
+            LocationIdentifier? location = do_get_location_for_id(cx, id, ListFlags.INCLUDE_MARKED_FOR_REMOVE,
                 cancellable);
             if (location == null) {
                 throw new EngineError.NOT_FOUND("Message %s cannot be removed from %s: not found",
