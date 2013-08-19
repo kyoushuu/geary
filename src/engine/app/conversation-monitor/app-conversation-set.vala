@@ -11,11 +11,6 @@ private class Geary.App.ConversationSet : BaseObject {
     private Gee.HashMap<Geary.EmailIdentifier, Conversation> email_id_map
         = new Gee.HashMap<Geary.EmailIdentifier, Conversation>();
     
-    // Only contains the Message-ID headers of emails actually in
-    // conversations.
-    private Gee.HashMap<Geary.RFC822.MessageID, Conversation> contained_message_id_map
-        = new Gee.HashMap<Geary.RFC822.MessageID, Conversation>();
-    
     // Contains the full set of Message IDs theoretically in each conversation,
     // as determined by the ancestors of all messages in the conversation.
     private Gee.HashMap<Geary.RFC822.MessageID, Conversation> logical_message_id_map
@@ -48,23 +43,12 @@ private class Geary.App.ConversationSet : BaseObject {
      * with a matching Message-ID header, and any Message ID matching any
      * ancestor of any message in any conversation will match.
      */
-    public bool has_message_id(Geary.RFC822.MessageID message_id, bool logical_set = false) {
-        return (logical_set ? logical_message_id_map : contained_message_id_map).has_key(message_id);
+    public bool has_message_id(Geary.RFC822.MessageID message_id) {
+        return logical_message_id_map.has_key(message_id);
     }
     
     public Conversation? get_by_email_identifier(Geary.EmailIdentifier id) {
         return email_id_map.get(id);
-    }
-    
-    /**
-     * Return the conversation the given Message ID belongs to.  If
-     * logical_set, the Message ID may match any ancestor of any message in any
-     * conversation; else it must match the Message-ID header of an email in
-     * any conversation.  Return null if not found.
-     */
-    public Conversation? get_by_message_id(Geary.RFC822.MessageID message_id,
-        bool logical_set = false) {
-        return (logical_set ? logical_message_id_map : contained_message_id_map).get(message_id);
     }
     
     public void clear_owners() {
@@ -140,9 +124,6 @@ private class Geary.App.ConversationSet : BaseObject {
         }
         
         email_id_map.set(email.id, conversation);
-        
-        if (email.message_id != null)
-            contained_message_id_map.set(email.message_id, conversation);
         
         Gee.Set<RFC822.MessageID>? ancestors = email.get_ancestors();
         if (ancestors != null) {
@@ -284,11 +265,6 @@ private class Geary.App.ConversationSet : BaseObject {
         // it would indicate a nasty error in our logic that we need to fix.
         if (!email_id_map.unset(email.id))
             error("Email %s already removed from conversation set", email.id.to_string());
-        
-        if (email.message_id != null) {
-            if (!contained_message_id_map.unset(email.message_id))
-                error("Message-ID %s already removed from conversation set", email.message_id.to_string());
-        }
         
         Gee.Set<Geary.RFC822.MessageID>? removed_message_ids = conversation.remove(email);
         if (removed_message_ids != null) {

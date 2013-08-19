@@ -442,7 +442,7 @@ public class Geary.App.ConversationMonitor : BaseObject {
                 Gee.Set<RFC822.MessageID>? ancestors = email.get_ancestors();
                 if (ancestors != null) {
                     foreach (RFC822.MessageID ancestor in ancestors) {
-                        if (conversations.has_message_id(ancestor, true)) {
+                        if (conversations.has_message_id(ancestor)) {
                             relevant_ids.add(email.id);
                             break;
                         }
