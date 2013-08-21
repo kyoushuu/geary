@@ -292,6 +292,7 @@ client/accounts/account-spinner-page.vala
 client/accounts/add-edit-page.vala
 client/accounts/login-dialog.vala
 
+client/composer/composer-toolbar.vala
 client/composer/composer-window.vala
 client/composer/contact-entry-completion.vala
 client/composer/contact-list-store.vala
@@ -334,6 +335,7 @@ client/ui/main-toolbar.vala
 client/ui/main-window.vala
 client/ui/monitored-progress-bar.vala
 client/ui/monitored-spinner.vala
+client/ui/pill-toolbar.vala
 client/ui/stock.vala
 
 client/util/util-date.vala

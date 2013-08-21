@@ -40,10 +40,10 @@
      inkscape:window-x="280"
      inkscape:window-y="113"
      inkscape:window-maximized="0"
-     inkscape:current-layer="Layer_1" /><polygon
-     points="50,0 33,17 46,17 46,83 33,83 50,100 67,83 54,83 54,17 67,17 "
-     id="polygon3"
-     style="fill:#bebebe;fill-opacity:1;stroke:none;stroke-opacity:1" /><polygon
-     points="0,50 17,67 17,54 83,54 83,67 100,50 83,33 83,46 17,46 17,33 "
-     id="polygon5"
-     style="fill:#bebebe;fill-opacity:1;stroke:none;stroke-opacity:1" /></svg>
+     inkscape:current-layer="Layer_1" /><path
+     style="fill:#bebebe;fill-opacity:1;stroke:none"
+     d="m 50,0 -17,17 13,0 0,66 -13,0 17,17 17,-17 -13,0 0,-66 13,0 z"
+     id="polygon3" /><path
+     style="fill:#bebebe;fill-opacity:1;stroke:none"
+     d="m 0,50 17,17 0,-13 66,0 0,13 17,-17 -17,-17 0,13 -66,0 0,-13 z"
+     id="polygon5" /></svg>

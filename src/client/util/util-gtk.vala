@@ -88,4 +88,13 @@ private void add_accel_to_label(Gtk.Widget widget, Gtk.AccelKey key) {
     label.refetch();
 }
 
+/**
+ * Removes all items from a menu.
+ */
+public void clear_menu(Gtk.Menu menu) {
+    GLib.List<weak Gtk.Widget> children = menu.get_children();
+    foreach (weak Gtk.Widget child in children)
+        menu.remove(child);
+}
+
 }
