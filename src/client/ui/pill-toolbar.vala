@@ -64,8 +64,11 @@ public class PillToolbar : Gtk.Toolbar {
     public Gtk.ToolItem create_pill_buttons(Gee.Collection<Gtk.Button> buttons,
         bool left_spacer = true) {
         Gtk.Box box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-        box.get_style_context().add_class(Gtk.STYLE_CLASS_RAISED);
-        box.get_style_context().add_class(Gtk.STYLE_CLASS_LINKED);
+        
+        if (buttons.size > 1) {
+            box.get_style_context().add_class(Gtk.STYLE_CLASS_RAISED);
+            box.get_style_context().add_class(Gtk.STYLE_CLASS_LINKED);
+        }
         
         foreach(Gtk.Button button in buttons)
             box.add(button);
