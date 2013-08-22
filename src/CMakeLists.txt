@@ -273,6 +273,7 @@ engine/util/util-imap-utf7.vala
 engine/util/util-inet.vala
 engine/util/util-numeric.vala
 engine/util/util-object.vala
+engine/util/util-profile-timer.vala
 engine/util/util-reference-semantics.vala
 engine/util/util-scheduler.vala
 engine/util/util-single-item.vala
