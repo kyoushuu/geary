@@ -15,13 +15,14 @@ public class ComposerToolbar : PillToolbar {
         insert.add(create_toggle_button(null, ComposerWindow.ACTION_ITALIC));
         insert.add(create_toggle_button(null, ComposerWindow.ACTION_UNDERLINE));
         insert.add(create_toggle_button(null, ComposerWindow.ACTION_STRIKETHROUGH));
-        add(create_pill_buttons(insert, false));
+        Gtk.ToolItem font_format_item = create_pill_buttons(insert, false, true);
+        add(font_format_item);
         
         // Indent level.
         insert.clear();
         insert.add(create_toolbar_button(null, ComposerWindow.ACTION_INDENT));
         insert.add(create_toolbar_button(null, ComposerWindow.ACTION_OUTDENT));
-        add(create_pill_buttons(insert));
+        add(create_pill_buttons(insert, false));
         
         // Link.
         insert.clear();

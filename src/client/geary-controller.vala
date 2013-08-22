@@ -282,7 +282,7 @@ public class GearyController : Geary.BaseObject {
         add_accelerator("exclam", ACTION_MARK_AS_SPAM); // Exclamation mark (!)
         
         Gtk.ActionEntry copy_menu = { ACTION_COPY_MENU, null, TRANSLATABLE, "L",
-            _("Add label to conversation"), null };
+            _("Add label"), null };
         copy_menu.label = _("_Label");
         entries += copy_menu;
 
@@ -291,23 +291,23 @@ public class GearyController : Geary.BaseObject {
         entries += move_menu;
 
         Gtk.ActionEntry new_message = { ACTION_NEW_MESSAGE, null, null, "<Ctrl>N", 
-            _("Start new conversation (Ctrl+N, N)"), on_new_message };
+            _("Compose new message (Ctrl+N, N)"), on_new_message };
         entries += new_message;
         add_accelerator("N", ACTION_NEW_MESSAGE);
 
         Gtk.ActionEntry reply_to_message = { ACTION_REPLY_TO_MESSAGE, null, null, "<Ctrl>R",
-            _("Reply to last message in conversation (Ctrl+R, R)"), on_reply_to_message_action };
+            _("Reply (Ctrl+R, R)"), on_reply_to_message_action };
         entries += reply_to_message;
         add_accelerator("R", ACTION_REPLY_TO_MESSAGE);
         
         Gtk.ActionEntry reply_all_message = { ACTION_REPLY_ALL_MESSAGE, null, null,
-            "<Ctrl><Shift>R", _("Reply to everyone in last message of conversation (Ctrl+Shift+R, Shift+R)"), 
+            "<Ctrl><Shift>R", _("Reply all (Ctrl+Shift+R, Shift+R)"), 
             on_reply_all_message_action };
         entries += reply_all_message;
         add_accelerator("<Shift>R", ACTION_REPLY_ALL_MESSAGE);
         
         Gtk.ActionEntry forward_message = { ACTION_FORWARD_MESSAGE, null, null, "<Ctrl>L", 
-            _("Send copy of last message in conversation (Ctrl+L, F)"), on_forward_message_action };
+            _("Forward (Ctrl+L, F)"), on_forward_message_action };
         entries += forward_message;
         add_accelerator("F", ACTION_FORWARD_MESSAGE);
         

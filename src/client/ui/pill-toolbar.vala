@@ -62,7 +62,7 @@ public class PillToolbar : Gtk.Toolbar {
      * toolbar.  Optionally adds a spacer to the left.
      */
     public Gtk.ToolItem create_pill_buttons(Gee.Collection<Gtk.Button> buttons,
-        bool left_spacer = true) {
+        bool left_spacer = true, bool right_spacer = false) {
         Gtk.Box box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
         
         if (buttons.size > 1) {
@@ -70,8 +70,17 @@ public class PillToolbar : Gtk.Toolbar {
             box.get_style_context().add_class(Gtk.STYLE_CLASS_LINKED);
         }
         
-        foreach(Gtk.Button button in buttons)
+        int i = 0;
+        foreach(Gtk.Button button in buttons) {
             box.add(button);
+            
+            // Place the right spacer on the button itself.  This way if the button is not displayed,
+            // the spacer will not appear.
+            if (i == buttons.size - 1 && right_spacer)
+                button.set_margin_right(12);
+            
+            i++;
+        }
         
         Gtk.ToolItem tool_item = new Gtk.ToolItem();
         tool_item.add(box);
