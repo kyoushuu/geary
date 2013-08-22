@@ -1691,6 +1691,7 @@ public class GearyController : Geary.BaseObject {
     }
     
     private void do_search(string search_text) {
+        Geary.Util.ProfileTimer timer = new Geary.Util.ProfileTimer(Log.METHOD); (void) timer;
         Geary.SearchFolder? folder = null;
         try {
             folder = (Geary.SearchFolder) current_account.get_special_folder(
