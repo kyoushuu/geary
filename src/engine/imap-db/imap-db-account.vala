@@ -551,7 +551,7 @@ private class Geary.ImapDB.Account : BaseObject {
     }
     
     public string prepare_search_query(string raw_query) {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD); (void) timer;
+        Util.ProfileTimer timer = new Util.ProfileTimer(); (void) timer;
         // Two goals here:
         //   1) append an * after every term so it becomes a prefix search
         //      (see <https://www.sqlite.org/fts3.html#section_3>), and
@@ -638,7 +638,7 @@ private class Geary.ImapDB.Account : BaseObject {
         Geary.Email.Field requested_fields, bool partial_ok, Geary.FolderPath? email_id_folder_path,
         int limit = 100, int offset = 0, Gee.Collection<Geary.FolderPath?>? folder_blacklist = null,
         Gee.Collection<Geary.EmailIdentifier>? search_ids = null, Cancellable? cancellable = null) throws Error {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD);
+        Util.ProfileTimer timer = new Util.ProfileTimer();
         Gee.Collection<Geary.Email> search_results = new Gee.HashSet<Geary.Email>();
         
         string? search_ids_sql = get_search_ids_sql(search_ids);

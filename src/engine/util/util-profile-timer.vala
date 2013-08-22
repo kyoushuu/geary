@@ -7,7 +7,7 @@ public class Geary.Util.ProfileTimer : BaseObject {
     private int id;
     private string name;
     
-    public ProfileTimer(string name) {
+    public ProfileTimer(string name = GLib.Log.METHOD) {
         t = new Timer();
         t.start();
         id = next_id++;

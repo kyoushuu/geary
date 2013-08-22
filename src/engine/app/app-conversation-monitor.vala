@@ -332,6 +332,8 @@ public class Geary.App.ConversationMonitor : BaseObject {
     }
     
     internal async void local_load_async() {
+        Util.ProfileTimer timer = new Util.ProfileTimer();
+        timer.note(folder.to_string());
         debug("ConversationMonitor seeding with local email for %s", folder.to_string());
         try {
             yield load_by_id_async(null, min_window_count, Folder.ListFlags.LOCAL_ONLY, cancellable_monitor);
@@ -493,6 +495,7 @@ public class Geary.App.ConversationMonitor : BaseObject {
     }
     
     private async void process_email_async(Gee.Collection<Geary.Email>? emails, ProcessJobContext job) {
+        Util.ProfileTimer timer = new Util.ProfileTimer(); (void) timer;
         if (emails == null || emails.size == 0) {
             yield process_email_complete_async(job);
             return;
@@ -725,6 +728,8 @@ public class Geary.App.ConversationMonitor : BaseObject {
     }
     
     internal async void reseed_async(string why) {
+        Util.ProfileTimer timer = new Util.ProfileTimer();
+        timer.note(folder.to_string());
         Geary.EmailIdentifier? earliest_id = get_lowest_email_id();
         
         try {
@@ -857,6 +862,8 @@ public class Geary.App.ConversationMonitor : BaseObject {
      * Attempts to load enough conversations to fill min_window_count.
      */
     internal async void fill_window_async(bool is_insert) {
+        Util.ProfileTimer timer = new Util.ProfileTimer();
+        timer.note(folder.to_string());
         if (!is_monitoring || min_window_count <= conversations.size)
             return;
         

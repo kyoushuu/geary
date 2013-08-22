@@ -98,7 +98,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
     
     private async void append_new_email_async(string query, Geary.Folder folder,
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable) throws Error {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD);
+        Util.ProfileTimer timer = new Util.ProfileTimer();
         int result_mutex_token = yield result_mutex.claim_async();
         timer.note_elapsed("got mutex");
         Error? error = null;
@@ -149,7 +149,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
     
     private async void handle_removed_email_async(string query, Geary.Folder folder,
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable) throws Error {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD);
+        Util.ProfileTimer timer = new Util.ProfileTimer();
         int result_mutex_token = yield result_mutex.claim_async();
         timer.note_elapsed("got mutex");
         Error? error = null;
@@ -214,7 +214,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
      * Clears the search query and results.
      */
     public void clear() {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD); (void) timer;
+        Util.ProfileTimer timer = new Util.ProfileTimer(); (void) timer;
         Gee.TreeSet<Geary.Email> local_results = search_results;
         clear_search_results();
         notify_email_removed(email_collection_to_ids(local_results));
@@ -242,7 +242,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
     }
     
     private async void set_search_query_async(string query, Cancellable? cancellable = null) throws Error {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD);
+        Util.ProfileTimer timer = new Util.ProfileTimer();
         timer.note("query is %s".printf(query));
         int result_mutex_token = yield result_mutex.claim_async();
         timer.note_elapsed("got mutex");
@@ -325,7 +325,8 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
     public override async Gee.List<Geary.Email>? list_email_by_id_async(Geary.EmailIdentifier? initial_id,
         int count, Geary.Email.Field required_fields, Folder.ListFlags flags, Cancellable? cancellable = null)
         throws Error {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD);
+        Util.ProfileTimer timer = new Util.ProfileTimer();
+        timer.note("count: %d, fields: 0x%x, flags: 0x%x".printf(count, required_fields, flags));
         if (count <= 0)
             return null;
         
@@ -371,7 +372,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
     public override async Gee.List<Geary.Email>? list_email_by_sparse_id_async(
         Gee.Collection<Geary.EmailIdentifier> ids, Geary.Email.Field required_fields, Folder.ListFlags flags,
         Cancellable? cancellable = null) throws Error {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD); (void) timer;
+        Util.ProfileTimer timer = new Util.ProfileTimer(); (void) timer;
         // TODO: Fetch emails in a batch.
         Gee.List<Geary.Email> result = new Gee.ArrayList<Geary.Email>();
         foreach(Geary.EmailIdentifier id in ids)
@@ -390,13 +391,14 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
     public override async Geary.Email fetch_email_async(Geary.EmailIdentifier id,
         Geary.Email.Field required_fields, Geary.Folder.ListFlags flags,
         Cancellable? cancellable = null) throws Error {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD); (void) timer;
+        Util.ProfileTimer timer = new Util.ProfileTimer(); (void) timer;
+        timer.note(id.to_string());
         return yield account.local_fetch_email_async(id, required_fields, cancellable);
     }
     
     public virtual async void remove_email_async(Gee.List<Geary.EmailIdentifier> email_ids,
         Cancellable? cancellable = null) throws Error {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD); (void) timer;
+        Util.ProfileTimer timer = new Util.ProfileTimer(); (void) timer;
         Gee.MultiMap<Geary.EmailIdentifier, Geary.FolderPath>? ids_to_folders
             = yield account.get_containing_folders_async(email_ids, cancellable);
         if (ids_to_folders == null)
@@ -447,7 +449,7 @@ public class Geary.SearchFolder : Geary.AbstractLocalFolder, Geary.FolderSupport
      */
     public async Gee.Collection<string>? get_search_matches_async(
         Gee.Collection<Geary.EmailIdentifier> ids, Cancellable? cancellable = null) throws Error {
-        Util.ProfileTimer timer = new Util.ProfileTimer(Log.METHOD); (void) timer;
+        Util.ProfileTimer timer = new Util.ProfileTimer(); (void) timer;
         if (search_query == null)
             return null;
         return yield account.get_search_matches_async(ids, cancellable);
