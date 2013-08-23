@@ -54,7 +54,7 @@ public class MainToolbar : PillToolbar {
         insert.clear();
         insert.add(create_menu_button("marker-symbolic", mark_menu, GearyController.ACTION_MARK_AS_MENU));
         insert.add(create_menu_button("tag-symbolic", copy_folder_menu, GearyController.ACTION_COPY_MENU));
-        insert.add(create_menu_button("move-symbolic", move_folder_menu, GearyController.ACTION_MOVE_MENU));
+        insert.add(create_menu_button("folder-symbolic", move_folder_menu, GearyController.ACTION_MOVE_MENU));
         add(create_pill_buttons(insert));
         
         // Archive/delete button.
