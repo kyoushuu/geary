@@ -4,19 +4,21 @@
  * (version 2.1 or later).  See the COPYING file in this distribution.
  */
 
-public int compare_conversation_ascending(Geary.Conversation a, Geary.Conversation b) {
-    Gee.List<Geary.Email> apool = a.get_emails(Geary.Conversation.Ordering.DATE_ASCENDING);
-    Gee.List<Geary.Email> bpool = b.get_emails(Geary.Conversation.Ordering.DATE_ASCENDING);
+public int compare_conversation_ascending(Geary.App.Conversation a, Geary.App.Conversation b) {
+    Geary.Email? a_latest = a.get_latest_email(Geary.App.Conversation.Location.IN_FOLDER_OUT_OF_FOLDER);
+    Geary.Email? b_latest = b.get_latest_email(Geary.App.Conversation.Location.IN_FOLDER_OUT_OF_FOLDER);
     
-    if (apool.size == 0)
-        return (bpool.size > 0) ? -1 : 0;
-    else if (bpool.size == 0)
+    if (a_latest == null)
+        return (b_latest == null) ? 0 : -1;
+    else if (b_latest == null)
         return 1;
     
-    return Geary.Email.compare_date_ascending(apool.last(), bpool.last());
+    // use date-received so newly-arrived messages float to the top, even if they're send date
+    // was earlier (think of mailing lists that batch up forwarded mail)
+    return a_latest.properties.date_received.compare(b_latest.properties.date_received);
 }
 
-public int compare_conversation_descending(Geary.Conversation a, Geary.Conversation b) {
+public int compare_conversation_descending(Geary.App.Conversation a, Geary.App.Conversation b) {
     return compare_conversation_ascending(b, a);
 }
 

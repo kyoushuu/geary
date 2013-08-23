@@ -6,10 +6,10 @@
  
 public class ConversationListStore : Gtk.ListStore {
     public const Geary.Email.Field REQUIRED_FIELDS =
-        Geary.Email.Field.ENVELOPE | Geary.Email.Field.FLAGS;
+        Geary.Email.Field.ENVELOPE | Geary.Email.Field.FLAGS | Geary.Email.Field.PROPERTIES;
     
     public const Geary.Email.Field WITH_PREVIEW_FIELDS =
-        Geary.Email.Field.ENVELOPE | Geary.Email.Field.FLAGS | Geary.Email.Field.PREVIEW;
+        Geary.Email.Field.ENVELOPE | Geary.Email.Field.FLAGS | Geary.Email.Field.PROPERTIES | Geary.Email.Field.PREVIEW;
     
     public enum Column {
         CONVERSATION_DATA,
@@ -18,7 +18,7 @@ public class ConversationListStore : Gtk.ListStore {
         public static Type[] get_types() {
             return {
                 typeof (FormattedConversationData), // CONVERSATION_DATA
-                typeof (Geary.Conversation)         // CONVERSATION_OBJECT
+                typeof (Geary.App.Conversation)     // CONVERSATION_OBJECT
             };
         }
         
@@ -41,6 +41,7 @@ public class ConversationListStore : Gtk.ListStore {
     
     private Geary.App.ConversationMonitor conversation_monitor;
     private Geary.Folder? current_folder = null;
+    private Geary.App.EmailStore? email_store = null;
     private Cancellable? cancellable_folder = null;
     private bool loading_local_only = true;
     private int conversations_added_counter = 0;
@@ -97,6 +98,7 @@ public class ConversationListStore : Gtk.ListStore {
     public void set_current_folder(Geary.Folder? current_folder, Cancellable? cancellable_folder) {
         this.current_folder = current_folder;
         this.cancellable_folder = cancellable_folder;
+        email_store = (current_folder == null ? null : new Geary.App.EmailStore(current_folder.account));
     }
     
     public Geary.EmailIdentifier? get_lowest_email_id() {
@@ -106,7 +108,7 @@ public class ConversationListStore : Gtk.ListStore {
         
         Geary.EmailIdentifier? lowest_id = null;
         do {
-            Geary.Conversation? conversation = get_conversation_at_iter(iter);
+            Geary.App.Conversation? conversation = get_conversation_at_iter(iter);
             if (conversation == null)
                 continue;
             
@@ -114,14 +116,14 @@ public class ConversationListStore : Gtk.ListStore {
             if (conversation_lowest == null)
                 continue;
             
-            if (lowest_id == null || conversation_lowest.compare_to(lowest_id) < 0)
+            if (lowest_id == null || conversation_lowest.natural_sort_comparator(lowest_id) < 0)
                 lowest_id = conversation_lowest;
         } while (iter_next(ref iter));
         
         return lowest_id;
     }
     
-    public Geary.Conversation? get_conversation_at_path(Gtk.TreePath path) {
+    public Geary.App.Conversation? get_conversation_at_path(Gtk.TreePath path) {
         Gtk.TreeIter iter;
         if (!get_iter(out iter, path))
             return null;
@@ -129,7 +131,7 @@ public class ConversationListStore : Gtk.ListStore {
         return get_conversation_at_iter(iter);
     }
     
-    public Gtk.TreePath? get_path_for_conversation(Geary.Conversation conversation) {
+    public Gtk.TreePath? get_path_for_conversation(Geary.App.Conversation conversation) {
         Gtk.TreeIter iter;
         if (!get_iter_for_conversation(conversation, out iter))
             return null;
@@ -169,23 +171,17 @@ public class ConversationListStore : Gtk.ListStore {
         if (current_folder == null || !GearyApplication.instance.config.display_preview)
             return;
         
-        Gee.Collection<Geary.EmailIdentifier> folder_emails_needing_previews;
-        Gee.Collection<Geary.EmailIdentifier> account_emails_needing_previews;
-        get_emails_needing_previews(out folder_emails_needing_previews, out account_emails_needing_previews);
+        Gee.Set<Geary.EmailIdentifier> needing_previews = get_emails_needing_previews();
         
         Gee.ArrayList<Geary.Email> emails = new Gee.ArrayList<Geary.Email>();
-        if (folder_emails_needing_previews.size > 0)
-            emails.add_all(yield do_get_folder_previews_async(conversation_monitor,
-                folder_emails_needing_previews));
-        if (account_emails_needing_previews.size > 0)
-            emails.add_all(yield do_get_account_previews_async(conversation_monitor,
-                account_emails_needing_previews));
+        if (needing_previews.size > 0)
+            emails.add_all(yield do_get_previews_async(needing_previews));
         if (emails.size < 1)
             return;
         
         debug("Displaying %d previews for %s...", emails.size, current_folder.to_string());
         foreach (Geary.Email email in emails) {
-            Geary.Conversation? conversation = conversation_monitor.get_conversation_for_email(email.id);
+            Geary.App.Conversation? conversation = conversation_monitor.get_conversation_for_email(email.id);
             if (conversation != null)
                 set_preview_for_conversation(conversation, email);
             else
@@ -194,17 +190,16 @@ public class ConversationListStore : Gtk.ListStore {
         debug("Displayed %d previews for %s", emails.size, current_folder.to_string());
     }
     
-    private async Gee.List<Geary.Email> do_get_folder_previews_async(
-        Geary.App.ConversationMonitor conversation_monitor,
+    private async Gee.Collection<Geary.Email> do_get_previews_async(
         Gee.Collection<Geary.EmailIdentifier> emails_needing_previews) {
         Geary.Folder.ListFlags flags = (loading_local_only) ? Geary.Folder.ListFlags.LOCAL_ONLY
             : Geary.Folder.ListFlags.NONE;
-        Gee.List<Geary.Email>? emails = null;
+        Gee.Collection<Geary.Email>? emails = null;
         try {
-            debug("Loading %d previews for %s...", emails_needing_previews.size, current_folder.to_string());
-            emails = yield current_folder.list_email_by_sparse_id_async(emails_needing_previews,
+            debug("Loading %d previews...", emails_needing_previews.size);
+            emails = yield email_store.list_email_by_sparse_id_async(emails_needing_previews,
                 ConversationListStore.WITH_PREVIEW_FIELDS, flags, cancellable_folder);
-            debug("Loaded %d previews for %s...", emails_needing_previews.size, current_folder.to_string());
+            debug("Loaded %d previews...", emails_needing_previews.size);
         } catch (Error err) {
             // Ignore NOT_FOUND, as that's entirely possible when waiting for the remote to open
             if (!(err is Geary.EngineError.NOT_FOUND))
@@ -214,40 +209,33 @@ public class ConversationListStore : Gtk.ListStore {
         return emails ?? new Gee.ArrayList<Geary.Email>();
     }
     
-    private async Gee.List<Geary.Email> do_get_account_previews_async(
-        Geary.App.ConversationMonitor conversation_monitor,
-        Gee.Collection<Geary.EmailIdentifier> emails_needing_previews) {
-        debug("Loading %d previews from %s...", emails_needing_previews.size,
-            current_folder.account.to_string());
-        Gee.List<Geary.Email> emails = new Gee.ArrayList<Geary.Email>();
-        foreach (Geary.EmailIdentifier id in emails_needing_previews) {
-            try {
-                emails.add(yield current_folder.account.local_fetch_email_async(id,
-                    ConversationListStore.WITH_PREVIEW_FIELDS, cancellable_folder));
-            } catch (Error err) {
-                debug("Unable to fetch preview for %s: %s", id.to_string(), err.message);
-            }
-        }
-        debug("Loaded %d previews from %s...", emails_needing_previews.size,
-            current_folder.account.to_string());
+    private Gee.Set<Geary.EmailIdentifier> get_emails_needing_previews() {
+        Gee.Set<Geary.EmailIdentifier> needing = new Gee.HashSet<Geary.EmailIdentifier>();
         
-        return emails;
-    }
-    
-    private void get_emails_needing_previews(out Gee.Collection<Geary.EmailIdentifier> folder_emails,
-        out Gee.Collection<Geary.EmailIdentifier> account_emails) {
         // sort the conversations so the previews are fetched from the newest to the oldest, matching
         // the user experience
-        Gee.TreeSet<Geary.Conversation> sorted_conversations = new Geary.Collection.FixedTreeSet<Geary.Conversation>(
+        Gee.TreeSet<Geary.App.Conversation> sorted_conversations
+            = new Geary.Collection.FixedTreeSet<Geary.App.Conversation>(
             compare_conversation_descending);
         sorted_conversations.add_all(conversation_monitor.get_conversations());
-        
-        folder_emails = new Gee.HashSet<Geary.EmailIdentifier>();
-        account_emails = new Gee.HashSet<Geary.EmailIdentifier>();
-        foreach (Geary.Conversation conversation in sorted_conversations) {
-            Geary.Email? need_preview = conversation.get_latest_email();
-            if (need_preview == null)
-                continue;
+        foreach (Geary.App.Conversation conversation in sorted_conversations) {
+            // find oldest unread message for the preview
+            Geary.Email? need_preview = null;
+            foreach (Geary.Email email in conversation.get_emails(Geary.App.Conversation.Ordering.DATE_ASCENDING)) {
+                if (email.email_flags.is_unread()) {
+                    need_preview = email;
+                    
+                    break;
+                }
+            }
+            
+            // if all are read, use newest in-folder message, then newest out-of-folder if not
+            // present
+            if (need_preview == null) {
+                need_preview = conversation.get_latest_email(Geary.App.Conversation.Location.IN_FOLDER_OUT_OF_FOLDER);
+                if (need_preview == null)
+                    continue;
+            }
             
             Geary.Email? current_preview = get_preview_for_conversation(conversation);
             
@@ -258,14 +246,13 @@ public class ConversationListStore : Gtk.ListStore {
                 continue;
             }
             
-            if (need_preview.id.folder_path == null)
-                account_emails.add(need_preview.id);
-            else
-                folder_emails.add(need_preview.id);
+            needing.add(need_preview.id);
         }
+        
+        return needing;
     }
     
-    private Geary.Email? get_preview_for_conversation(Geary.Conversation conversation) {
+    private Geary.Email? get_preview_for_conversation(Geary.App.Conversation conversation) {
         Gtk.TreeIter iter;
         if (!get_iter_for_conversation(conversation, out iter)) {
             debug("Unable to find preview for conversation");
@@ -277,7 +264,7 @@ public class ConversationListStore : Gtk.ListStore {
         return message_data == null ? null : message_data.preview;
     }
     
-    private void set_preview_for_conversation(Geary.Conversation conversation, Geary.Email preview) {
+    private void set_preview_for_conversation(Geary.App.Conversation conversation, Geary.Email preview) {
         Gtk.TreeIter iter;
         if (get_iter_for_conversation(conversation, out iter))
             set_row(iter, conversation, preview);
@@ -285,7 +272,7 @@ public class ConversationListStore : Gtk.ListStore {
             debug("Unable to find preview for conversation");
     }
     
-    private void set_row(Gtk.TreeIter iter, Geary.Conversation conversation, Geary.Email preview) {
+    private void set_row(Gtk.TreeIter iter, Geary.App.Conversation conversation, Geary.Email preview) {
         FormattedConversationData conversation_data = new FormattedConversationData(conversation,
             preview, current_folder, account_owner_email);
         set(iter,
@@ -293,7 +280,7 @@ public class ConversationListStore : Gtk.ListStore {
             Column.CONVERSATION_OBJECT, conversation);
     }
     
-    private void refresh_conversation(Geary.Conversation conversation) {
+    private void refresh_conversation(Geary.App.Conversation conversation) {
         Gtk.TreeIter iter;
         if (!get_iter_for_conversation(conversation, out iter)) {
             // Unknown conversation, attempt to append it.
@@ -301,7 +288,7 @@ public class ConversationListStore : Gtk.ListStore {
             return;
         }
         
-        Geary.Email? last_email = conversation.get_latest_email();
+        Geary.Email? last_email = conversation.get_latest_email(Geary.App.Conversation.Location.ANYWHERE);
         if (last_email == null) {
             debug("Cannot refresh conversation: last email is null");
             
@@ -326,7 +313,7 @@ public class ConversationListStore : Gtk.ListStore {
         }
     }
     
-    private void refresh_flags(Geary.Conversation conversation) {
+    private void refresh_flags(Geary.App.Conversation conversation) {
         Gtk.TreeIter iter;
         if (!get_iter_for_conversation(conversation, out iter)) {
             // Unknown conversation, attempt to append it.
@@ -346,7 +333,7 @@ public class ConversationListStore : Gtk.ListStore {
             row_changed(path, iter);
     }
     
-    private bool get_iter_for_conversation(Geary.Conversation conversation, out Gtk.TreeIter iter) {
+    private bool get_iter_for_conversation(Geary.App.Conversation conversation, out Gtk.TreeIter iter) {
         if (!get_iter_first(out iter))
             return false;
         
@@ -358,12 +345,12 @@ public class ConversationListStore : Gtk.ListStore {
         return false;
     }
     
-    private bool has_conversation(Geary.Conversation conversation) {
+    private bool has_conversation(Geary.App.Conversation conversation) {
         return get_iter_for_conversation(conversation, null);
     }
     
-    private Geary.Conversation? get_conversation_at_iter(Gtk.TreeIter iter) {
-        Geary.Conversation? conversation;
+    private Geary.App.Conversation? get_conversation_at_iter(Gtk.TreeIter iter) {
+        Geary.App.Conversation? conversation;
         get(iter, Column.CONVERSATION_OBJECT, out conversation);
         
         return conversation;
@@ -376,14 +363,14 @@ public class ConversationListStore : Gtk.ListStore {
         return message_data;
     }
     
-    private void remove_conversation(Geary.Conversation conversation) {
+    private void remove_conversation(Geary.App.Conversation conversation) {
         Gtk.TreeIter iter;
         if (get_iter_for_conversation(conversation, out iter))
             remove(iter);
     }
     
-    private bool add_conversation(Geary.Conversation conversation) {
-        Geary.Email? last_email = conversation.get_latest_email();
+    private bool add_conversation(Geary.App.Conversation conversation) {
+        Geary.Email? last_email = conversation.get_latest_email(Geary.App.Conversation.Location.ANYWHERE);
         if (last_email == null) {
             debug("Cannot add conversation: last email is null");
             
@@ -408,7 +395,7 @@ public class ConversationListStore : Gtk.ListStore {
         loading_local_only = false;
     }
     
-    private void on_conversations_added(Gee.Collection<Geary.Conversation> conversations) {
+    private void on_conversations_added(Gee.Collection<Geary.App.Conversation> conversations) {
         // this handler is used to initialize the display, so it's possible for an empty list to
         // be passed in (the ConversationMonitor signal should never do this)
         if (conversations.size == 0)
@@ -418,7 +405,7 @@ public class ConversationListStore : Gtk.ListStore {
         
         debug("Adding %d conversations.", conversations.size);
         int added = 0;
-        foreach (Geary.Conversation conversation in conversations) {
+        foreach (Geary.App.Conversation conversation in conversations) {
             if (add_conversation(conversation))
                 added++;
         }
@@ -433,11 +420,11 @@ public class ConversationListStore : Gtk.ListStore {
         conversations_added_finished();
     }
     
-    private void on_conversation_removed(Geary.Conversation conversation) {
+    private void on_conversation_removed(Geary.App.Conversation conversation) {
         remove_conversation(conversation);
     }
     
-    private void on_conversation_appended(Geary.Conversation conversation) {
+    private void on_conversation_appended(Geary.App.Conversation conversation) {
         if (has_conversation(conversation)) {
             refresh_conversation(conversation);
         } else {
@@ -445,7 +432,7 @@ public class ConversationListStore : Gtk.ListStore {
         }
     }
     
-    private void on_conversation_trimmed(Geary.Conversation conversation) {
+    private void on_conversation_trimmed(Geary.App.Conversation conversation) {
         refresh_conversation(conversation);
     }
     
@@ -453,12 +440,17 @@ public class ConversationListStore : Gtk.ListStore {
         refresh_previews_async.begin(conversation_monitor);
     }
     
-    private void on_email_flags_changed(Geary.Conversation conversation) {
+    private void on_email_flags_changed(Geary.App.Conversation conversation) {
         refresh_flags(conversation);
+        
+        // refresh previews because the oldest unread message is displayed as the preview, and if
+        // that's changed, need to change the preview
+        // TODO: need support code to load preview for single conversation, not scan all
+        refresh_previews_async.begin(conversation_monitor);
     }
     
     private int sort_by_date(Gtk.TreeModel model, Gtk.TreeIter aiter, Gtk.TreeIter biter) {
-        Geary.Conversation a, b;
+        Geary.App.Conversation a, b;
         
         get(aiter, Column.CONVERSATION_OBJECT, out a);
         get(biter, Column.CONVERSATION_OBJECT, out b);

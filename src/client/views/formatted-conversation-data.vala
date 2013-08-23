@@ -90,12 +90,12 @@ public class FormattedConversationData : Geary.BaseObject {
     public int num_emails { get; set; }
     public Geary.Email? preview { get; private set; default = null; }
     
-    private Geary.Conversation? conversation = null;
+    private Geary.App.Conversation? conversation = null;
     private string? account_owner_email = null;
     private bool use_to = true;
     
     // Creates a formatted message data from an e-mail.
-    public FormattedConversationData(Geary.Conversation conversation, Geary.Email preview,
+    public FormattedConversationData(Geary.App.Conversation conversation, Geary.Email preview,
         Geary.Folder folder, string account_owner_email) {
         assert(preview.fields.fulfills(ConversationListStore.REQUIRED_FIELDS));
         
@@ -104,9 +104,7 @@ public class FormattedConversationData : Geary.BaseObject {
         use_to = (folder != null) && folder.special_folder_type.is_outgoing();
         
         // Load preview-related data.
-        this.date = (preview.date != null)
-            ? Date.pretty_print(preview.date.value, GearyApplication.instance.config.clock_format)
-            : "";
+        update_date_string();
         this.subject = get_clean_subject_as_string(preview);
         this.body = Geary.String.reduce_whitespace(preview.get_preview_as_string());
         this.preview = preview;
@@ -118,15 +116,20 @@ public class FormattedConversationData : Geary.BaseObject {
     }
     
     public bool update_date_string() {
-        if (preview.date == null) {
+        // get latest email *in folder* for the conversation's date, fall back on out-of-folder
+        Geary.Email? latest = conversation.get_latest_email(Geary.App.Conversation.Location.IN_FOLDER_OUT_OF_FOLDER);
+        if (latest == null || latest.properties == null)
             return false;
-        }
-        string new_date = Date.pretty_print(preview.date.value,
+        
+        // conversation list store sorts by date-received, so display that instead of sender's
+        // Date:
+        string new_date = Date.pretty_print(latest.properties.date_received,
             GearyApplication.instance.config.clock_format);
-        if (new_date == date) {
+        if (new_date == date)
             return false;
-        }
+        
         date = new_date;
+        
         return true;
     }
     
@@ -201,7 +204,7 @@ public class FormattedConversationData : Geary.BaseObject {
         // Build chronological list of AuthorDisplay records, setting to unread if any message by
         // that author is unread
         Gee.ArrayList<ParticipantDisplay> list = new Gee.ArrayList<ParticipantDisplay>();
-        foreach (Geary.Email message in conversation.get_emails(Geary.Conversation.Ordering.DATE_ASCENDING)) {
+        foreach (Geary.Email message in conversation.get_emails(Geary.App.Conversation.Ordering.DATE_ASCENDING)) {
             // only display if something to display
             Geary.RFC822.MailboxAddresses? addresses = use_to ? message.to : message.from;
             if (addresses == null || addresses.size < 1)

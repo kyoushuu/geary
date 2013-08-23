@@ -94,9 +94,17 @@ private class Geary.ImapEngine.GmailAccount : Geary.ImapEngine.GenericAccount {
                 return new GenericTrashFolder(this, remote_account, local_account, local_folder,
                     special_folder_type);
             
+             case SpecialFolderType.DRAFTS:
+                return new GenericDraftsFolder(this, remote_account, local_account, local_folder,
+                    special_folder_type);
+            
             default:
                 return new GmailFolder(this, remote_account, local_account, local_folder, special_folder_type);
         }
+    }
+    
+    protected override SearchFolder new_search_folder() {
+        return new GmailSearchFolder(this);
     }
 }
 

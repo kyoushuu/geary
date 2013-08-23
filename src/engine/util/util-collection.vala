@@ -24,6 +24,21 @@ public G? get_first<G>(Gee.Collection<G> c) {
     return iter.next() ? iter.get() : null;
 }
 
+/**
+ * Returns the first element in the Collection that passes the Predicte function.
+ *
+ * The Collection is walked in Iterator order.
+ */
+public G? find_first<G>(Gee.Collection<G> c, owned Gee.Predicate<G> pred) {
+    Gee.Iterator<G> iter = c.iterator();
+    while (iter.next()) {
+        if (pred(iter.get()))
+            return iter.get();
+    }
+    
+    return null;
+}
+
 public bool are_sets_equal<G>(Gee.Set<G> a, Gee.Set<G> b) {
     if (a.size != b.size)
         return false;
@@ -37,14 +52,18 @@ public bool are_sets_equal<G>(Gee.Set<G> a, Gee.Set<G> b) {
 }
 
 /**
- * Removes all elements from the Collection that do not pass the Predicate function.
+ * Removes all elements from the Collection that do pass the Predicate function.
+ *
+ * Note that this modifies the supplied Collection.
  */
-public void filtered_remove<G>(Gee.Collection<G> c, owned Gee.Predicate<G> pred) {
+public Gee.Collection<G> remove_if<G>(Gee.Collection<G> c, owned Gee.Predicate<G> pred) {
     Gee.Iterator<G> iter = c.iterator();
     while (iter.next()) {
-        if (!pred(iter.get()))
+        if (pred(iter.get()))
             iter.remove();
     }
+    
+    return c;
 }
 
 /**
@@ -53,6 +72,27 @@ public void filtered_remove<G>(Gee.Collection<G> c, owned Gee.Predicate<G> pred)
 public void map_set_all<K, V>(Gee.Map<K, V> dest, Gee.Map<K, V> src) {
     foreach (K key in src.keys)
         dest.set(key, src.get(key));
+}
+
+/**
+ * Sets multiple elements with the same key in a MultiMap.
+ */
+public void multi_map_set_all<K, V>(Gee.MultiMap<K, V> dest, K key, Gee.Collection<V> values) {
+    foreach (V value in values)
+        dest.set(key, value);
+}
+
+/**
+ * Return a MultiMap of value => key of the input map's key => values.
+ */
+public Gee.MultiMap<V, K> reverse_multi_map<K, V>(Gee.MultiMap<K, V> map) {
+    Gee.HashMultiMap<V, K> reverse = new Gee.HashMultiMap<V, K>();
+    foreach (K key in map.get_keys()) {
+        foreach (V value in map.get(key))
+            reverse.set(value, key);
+    }
+    
+    return reverse;
 }
 
 /**
