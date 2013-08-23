@@ -363,20 +363,26 @@ public class ComposerWindow : Gtk.Window {
         
         GearyApplication.instance.config.spell_check_changed.connect(on_spell_check_changed);
         
-        font_sans = new Gtk.RadioMenuItem.with_label(new SList<Gtk.RadioMenuItem>(),
-            _("Sans Serif"));
+        // Font family menu items.
+        font_sans = new Gtk.RadioMenuItem(new SList<Gtk.RadioMenuItem>());
         font_sans.activate.connect(on_font_sans);
-        font_serif = new Gtk.RadioMenuItem.with_label_from_widget(font_sans, _("Serif"));
+        font_sans.related_action = ui.get_action("ui/font_sans");
+        font_serif = new Gtk.RadioMenuItem.from_widget(font_sans);
         font_serif.activate.connect(on_font_serif);
-        font_monospace = new Gtk.RadioMenuItem.with_label_from_widget(font_sans,
-            _("Fixed width"));
+        font_serif.related_action = ui.get_action("ui/font_serif");
+        font_monospace = new Gtk.RadioMenuItem.from_widget(font_sans);
+        font_monospace.related_action = ui.get_action("ui/font_monospace");
         font_monospace.activate.connect(on_font_monospace);
         
-        font_small = new Gtk.RadioMenuItem.with_label(new SList<Gtk.RadioMenuItem>(), _("Small"));
+        // Font size menu items.
+        font_small = new Gtk.RadioMenuItem(new SList<Gtk.RadioMenuItem>());
+        font_small.related_action = ui.get_action("ui/font_small");
         font_small.activate.connect(on_font_size_small);
-        font_medium = new Gtk.RadioMenuItem.with_label_from_widget(font_small, _("Medium"));
+        font_medium = new Gtk.RadioMenuItem.from_widget(font_small);
+        font_medium.related_action = ui.get_action("ui/font_medium");
         font_medium.activate.connect(on_font_size_medium);
-        font_large = new Gtk.RadioMenuItem.with_label_from_widget(font_small, _("Large"));
+        font_large = new Gtk.RadioMenuItem.from_widget(font_small);
+        font_large.related_action = ui.get_action("ui/font_large");
         font_large.activate.connect(on_font_size_large);
         
         color_item = new Gtk.MenuItem();
@@ -1012,6 +1018,7 @@ public class ComposerWindow : Gtk.Window {
         GtkUtil.clear_menu(menu);
         
         menu.append(html_item2);
+        menu.show_all();
     }
     
     private void build_html_menu() {
@@ -1031,6 +1038,7 @@ public class ComposerWindow : Gtk.Window {
         menu.append(new Gtk.SeparatorMenuItem());
         
         menu.append(html_item);
+        menu.show_all(); // Call this or only menu items associated with actions will be displayed.
     }
     
     private void on_font_sans() {

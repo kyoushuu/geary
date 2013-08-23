@@ -131,6 +131,42 @@
       <object class="GtkAction" id="close"/>
       <accelerator key="w" modifiers="GDK_CONTROL_MASK"/>
     </child>
+    <child>
+      <object class="GtkAction" id="font_large">
+        <property name="label" translatable="yes">Large</property>
+        <property name="short_label" translatable="yes">Large</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkAction" id="font_medium">
+        <property name="label" translatable="yes">Medium</property>
+        <property name="short_label" translatable="yes">Medium</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkAction" id="font_small">
+        <property name="label" translatable="yes">Small</property>
+        <property name="short_label" translatable="yes">Small</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkAction" id="font_sans">
+        <property name="label" translatable="yes">Sans Serif</property>
+        <property name="short_label" translatable="yes">Sans Serif</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkAction" id="font_serif">
+        <property name="label" translatable="yes">Serif</property>
+        <property name="short_label" translatable="yes">Serif</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkAction" id="font_monospace">
+        <property name="label" translatable="yes">Fixed width</property>
+        <property name="short_label" translatable="yes">Fixed width</property>
+      </object>
+    </child>
   </object>
   <object class="GtkBox" id="composer">
     <property name="visible">True</property>
