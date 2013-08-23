@@ -25,7 +25,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="22.197802"
-     inkscape:cx="-6.1004955"
+     inkscape:cx="6.7178215"
      inkscape:cy="7.9549503"
      inkscape:current-layer="layer1"
      showgrid="true"
@@ -66,6 +66,6 @@
        sodipodi:rx="7.9287128"
        sodipodi:ry="7.9287128"
        d="m 15.947525,8.0262375 a 7.9287128,7.9287128 0 1 1 -15.85742567,0 7.9287128,7.9287128 0 1 1 15.85742567,0 z"
-       transform="translate(1.0712872,-1.0712872)" />
+       transform="matrix(0.85511363,0,0,0.85511363,2.2331037,0.09160523)" />
   </g>
 </svg>

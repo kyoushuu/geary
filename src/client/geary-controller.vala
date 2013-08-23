@@ -159,7 +159,7 @@ public class GearyController : Geary.BaseObject {
         // Connect to various UI signals.
         main_window.conversation_list_view.conversations_selected.connect(on_conversations_selected);
         main_window.conversation_list_view.load_more.connect(on_load_more);
-        main_window.conversation_list_view.mark_conversation.connect(on_mark_conversation);
+        main_window.conversation_list_view.mark_selected_conversations.connect(on_mark_selected_conversations);
         main_window.conversation_list_view.visible_conversations_changed.connect(on_visible_conversations_changed);
         main_window.folder_list.folder_selected.connect(on_folder_selected);
         main_window.folder_list.copy_conversation.connect(on_copy_conversation);
@@ -1073,7 +1073,18 @@ public class GearyController : Geary.BaseObject {
             return conversation.get_email_ids(folder_email_ids_only);
         }
     }
-
+    
+    private Gee.Collection<Geary.EmailIdentifier> get_conversation_collection_email_ids(
+        Gee.Collection<Geary.Conversation> conversations, bool folder_email_ids_only = false,
+        bool preview_message_only = false) {
+        Gee.Collection<Geary.EmailIdentifier> ret = new Gee.ArrayList<Geary.EmailIdentifier>();
+        
+        foreach(Geary.Conversation c in conversations)
+            ret.add_all(get_conversation_email_ids(c, folder_email_ids_only, preview_message_only));
+        
+        return ret;
+    }
+    
     private void mark_selected_conversations(Geary.EmailFlags? flags_to_add,
         Geary.EmailFlags? flags_to_remove, bool preview_message_only = false) {
         Geary.FolderSupport.Mark? supports_mark = current_folder as Geary.FolderSupport.Mark;
@@ -1170,14 +1181,14 @@ public class GearyController : Geary.BaseObject {
         }
     }
     
-    private void on_mark_conversation(Geary.Conversation conversation,
-        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove, bool only_mark_preview = false) {
+    private void on_mark_selected_conversations(Geary.EmailFlags? flags_to_add,
+        Geary.EmailFlags? flags_to_remove, bool only_mark_preview = false) {
         Geary.FolderSupport.Mark? supports_mark = current_folder as Geary.FolderSupport.Mark;
         if (supports_mark == null)
             return;
         
         Gee.Collection<Geary.EmailIdentifier> ids
-            = get_conversation_email_ids(conversation, true, only_mark_preview);
+            = get_conversation_collection_email_ids(selected_conversations, true, only_mark_preview);
         if (ids.size > 0) {
             supports_mark.mark_email_async.begin(Geary.Collection.to_array_list<Geary.EmailIdentifier>(ids),
                 flags_to_add, flags_to_remove, cancellable_message);

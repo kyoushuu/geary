@@ -58,11 +58,14 @@ public class IconFactory {
         starred = load("star-symbolic", STAR_ICON_SIZE);
         unstarred = load("unstarred-symbolic", STAR_ICON_SIZE);
         
+        Gdk.RGBA gray_color = Gdk.RGBA();
+        gray_color.parse(FormattedConversationData.UNREAD_BG_COLOR);
+        
         // Load pre-colored symbolic icons here.
-        read_colored = load_symbolic_colored("read-symbolic", UNREAD_ICON_SIZE);
-        unread_colored = load_symbolic_colored("unread-symbolic", STAR_ICON_SIZE);
-        starred_colored = load_symbolic_colored("star-symbolic", STAR_ICON_SIZE);
-        unstarred_colored = load_symbolic_colored("unstarred-symbolic", STAR_ICON_SIZE);
+        read_colored = load_symbolic_colored("read-symbolic", UNREAD_ICON_SIZE, gray_color);
+        unread_colored = load_symbolic_colored("unread-symbolic", STAR_ICON_SIZE, gray_color);
+        starred_colored = load_symbolic_colored("star-symbolic", STAR_ICON_SIZE, gray_color);
+        unstarred_colored = load_symbolic_colored("unstarred-symbolic", STAR_ICON_SIZE, gray_color);
     }
     
     public void init() {
@@ -143,18 +146,24 @@ public class IconFactory {
     }
     
     /**
-     * Loads a symbolic icon into a pixbuf, where the color-key has been switched to black.
+     * Loads a symbolic icon into a pixbuf, where the color-key has been switched to the provided
+     * color, or black if no color is set.
      */
-    public Gdk.Pixbuf? load_symbolic_colored(string icon_name, int size, Gtk.IconLookupFlags flags = 0) {
+    public Gdk.Pixbuf? load_symbolic_colored(string icon_name, int size, Gdk.RGBA? color = null,
+        Gtk.IconLookupFlags flags = 0) {
         Gtk.IconInfo? icon_info = icon_theme.lookup_icon(icon_name, size, flags);
         
+        // Default to black if no color provided.
+        if (color == null) {
+            color = Gdk.RGBA();
+            color.red = color.green = color.blue = 0.0;
+            color.alpha = 1.0;
+        }
+        
+        // Attempt to load as a symbolic icon.
         if (icon_info != null) {
-            // If the icon's symbolic, make it black.
-            Gdk.RGBA black = Gdk.RGBA();
-            black.red = black.green = black.blue = 0.0;
-            black.alpha = 1.0;
             try {
-                return icon_info.load_symbolic(black);
+                return icon_info.load_symbolic(color);
             } catch (Error e) {
                 warning("Couldn't load icon: %s", e.message);
             }

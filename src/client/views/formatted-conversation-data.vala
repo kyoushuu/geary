@@ -6,6 +6,8 @@
 
 // Stores formatted data for a message.
 public class FormattedConversationData : Geary.BaseObject {
+    public const string UNREAD_BG_COLOR = "#888888";
+    
     private const string ME = _("Me");
     
     private const string STYLE_EXAMPLE = "Gg"; // Use both upper and lower case to get max height.
@@ -383,8 +385,8 @@ public class FormattedConversationData : Geary.BaseObject {
             return 0;
         
         string mails = 
-            "<span background='#888888' foreground='white' font='%d' weight='bold'> %d </span>"
-            .printf(FONT_SIZE_MESSAGE_COUNT, num_emails);
+            "<span background='%s' foreground='white' font='%d' weight='bold'> %d </span>"
+            .printf(UNREAD_BG_COLOR, FONT_SIZE_MESSAGE_COUNT, num_emails);
         
         Pango.Layout layout_num = widget.create_pango_layout(null);
         layout_num.set_markup(mails, -1);

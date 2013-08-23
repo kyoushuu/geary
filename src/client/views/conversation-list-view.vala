@@ -26,8 +26,8 @@ public class ConversationListView : Gtk.TreeView {
         enable_load_more = false;
     }
     
-    public signal void mark_conversation(Geary.Conversation conversation,
-        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove, bool only_mark_preview);
+    public signal void mark_selected_conversations(Geary.EmailFlags? flags_to_add,
+        Geary.EmailFlags? flags_to_remove, bool only_mark_preview);
     
     public signal void visible_conversations_changed(Gee.Set<Geary.Conversation> visible);
     
@@ -150,9 +150,9 @@ public class ConversationListView : Gtk.TreeView {
                 flags.add(Geary.EmailFlags.UNREAD);
                 
                 if (conversation.is_unread())
-                    mark_conversation(conversation, null, flags, false);
+                    mark_selected_conversations(null, flags, false);
                 else
-                    mark_conversation(conversation, flags, null, true);
+                    mark_selected_conversations(flags, null, true);
                 
                 return true;
             } else if (cell_x < 25 && cell_y >= 40 && cell_y <= 62) {
@@ -162,9 +162,9 @@ public class ConversationListView : Gtk.TreeView {
                 flags.add(Geary.EmailFlags.FLAGGED);
                 
                 if (conversation.is_flagged())
-                    mark_conversation(conversation, null, flags, false);
+                    mark_selected_conversations(null, flags, false);
                 else
-                    mark_conversation(conversation, flags, null, true);
+                    mark_selected_conversations(flags, null, true);
                 
                 return true;
             }
