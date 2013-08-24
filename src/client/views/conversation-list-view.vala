@@ -29,8 +29,8 @@ public class ConversationListView : Gtk.TreeView {
         enable_load_more = false;
     }
     
-    public signal void mark_selected_conversations(Geary.EmailFlags? flags_to_add,
-        Geary.EmailFlags? flags_to_remove, bool only_mark_preview);
+    public signal void mark_conversations(Gee.Collection<Geary.App.Conversation> conversations,
+        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove, bool only_mark_preview);
     
     public signal void visible_conversations_changed(Gee.Set<Geary.App.Conversation> visible);
     
@@ -147,28 +147,47 @@ public class ConversationListView : Gtk.TreeView {
         if ((event.state & Gdk.ModifierType.SHIFT_MASK) == 0 &&
             (event.state & Gdk.ModifierType.CONTROL_MASK) == 0 &&
             event.type == Gdk.EventType.BUTTON_PRESS) {
-            if (cell_x < 25 && cell_y >= 14 && cell_y <= 30) {
+            
+            // Click positions depend on whether the preview is enabled.
+            bool read_clicked = false;
+            bool star_clicked = false;
+            if (GearyApplication.instance.config.display_preview) {
+                read_clicked = cell_x < 25 && cell_y >= 14 && cell_y <= 30;
+                star_clicked = cell_x < 25 && cell_y >= 40 && cell_y <= 62;
+            } else {
+                read_clicked = cell_x < 25 && cell_y >= 8 && cell_y <= 22;
+                star_clicked = cell_x < 25 && cell_y >= 30 && cell_y <= 48;
+            }
+            
+            // Get the current conversation.  If it's selected, we'll apply the mark operation to
+            // all selected conversations; otherwise, it just applies to this one.
+            Geary.App.Conversation conversation = conversation_list_store.get_conversation_at_path(path);
+            Gee.Collection<Geary.App.Conversation> to_mark;
+            if (GearyApplication.instance.controller.get_selected_conversations().contains(conversation))
+                to_mark = GearyApplication.instance.controller.get_selected_conversations();
+            else
+                to_mark = new Geary.Collection.SingleItem<Geary.App.Conversation>(conversation);
+            
+            if (read_clicked) {
                 // Read/unread.
-                Geary.App.Conversation conversation = conversation_list_store.get_conversation_at_path(path);
                 Geary.EmailFlags flags = new Geary.EmailFlags();
                 flags.add(Geary.EmailFlags.UNREAD);
                 
                 if (conversation.is_unread())
-                    mark_selected_conversations(null, flags, false);
+                    mark_conversations(to_mark, null, flags, false);
                 else
-                    mark_selected_conversations(flags, null, true);
+                    mark_conversations(to_mark, flags, null, true);
                 
                 return true;
-            } else if (cell_x < 25 && cell_y >= 40 && cell_y <= 62) {
+            } else if (star_clicked) {
                 // Starred/unstarred.
-                Geary.App.Conversation conversation = conversation_list_store.get_conversation_at_path(path);
                 Geary.EmailFlags flags = new Geary.EmailFlags();
                 flags.add(Geary.EmailFlags.FLAGGED);
                 
                 if (conversation.is_flagged())
-                    mark_selected_conversations(null, flags, false);
+                    mark_conversations(to_mark, null, flags, false);
                 else
-                    mark_selected_conversations(flags, null, true);
+                    mark_conversations(to_mark, flags, null, true);
                 
                 return true;
             }

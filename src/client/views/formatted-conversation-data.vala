@@ -324,11 +324,13 @@ public class FormattedConversationData : Geary.BaseObject {
             FormattedConversationData.preview_height = preview_height;
             FormattedConversationData.cell_height = y + preview_height;
         } else {
+            int unread_y = GearyApplication.instance.config.display_preview ?
+                cell_area.y + LINE_SPACING * 2 : cell_area.y + LINE_SPACING;
+            
             // Unread indicator.
             Gdk.Pixbuf read_icon = is_unread ? IconFactory.instance.unread_colored
                 : IconFactory.instance.read_colored;
-            Gdk.cairo_set_source_pixbuf(ctx, read_icon, cell_area.x + LINE_SPACING,
-                cell_area.y + LINE_SPACING * 2);
+            Gdk.cairo_set_source_pixbuf(ctx, read_icon, cell_area.x + LINE_SPACING, unread_y);
             ctx.paint();
             
             // Starred indicator.

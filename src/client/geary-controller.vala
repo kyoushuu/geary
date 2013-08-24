@@ -164,7 +164,7 @@ public class GearyController : Geary.BaseObject {
         main_window.conversation_list_view.conversations_selected.connect(on_conversations_selected);
         main_window.conversation_list_view.conversation_activated.connect(on_conversation_activated);
         main_window.conversation_list_view.load_more.connect(on_load_more);
-        main_window.conversation_list_view.mark_selected_conversations.connect(on_mark_selected_conversations);
+        main_window.conversation_list_view.mark_conversations.connect(on_mark_conversations);
         main_window.conversation_list_view.visible_conversations_changed.connect(on_visible_conversations_changed);
         main_window.folder_list.folder_selected.connect(on_folder_selected);
         main_window.folder_list.copy_conversation.connect(on_copy_conversation);
@@ -1185,9 +1185,10 @@ public class GearyController : Geary.BaseObject {
         }
     }
     
-    private void on_mark_selected_conversations(Geary.EmailFlags? flags_to_add,
-        Geary.EmailFlags? flags_to_remove, bool only_mark_preview = false) {
-        mark_email(get_conversation_collection_email_ids(selected_conversations, only_mark_preview),
+    private void on_mark_conversations(Gee.Collection<Geary.App.Conversation> conversations,
+        Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove,
+        bool only_mark_preview = false) {
+        mark_email(get_conversation_collection_email_ids(conversations, only_mark_preview),
             flags_to_add, flags_to_remove);
     }
 
@@ -1745,6 +1746,13 @@ public class GearyController : Geary.BaseObject {
         do_search(main_window.main_toolbar.search_text);
         
         return false;
+    }
+    
+    /**
+     * Returns a read-only set of currently selected conversations.
+     */
+    public Gee.Set<Geary.App.Conversation> get_selected_conversations() {
+        return selected_conversations.read_only_view;
     }
 }
 
