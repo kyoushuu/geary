@@ -1191,7 +1191,7 @@ public class GearyController : Geary.BaseObject {
         mark_email(get_conversation_collection_email_ids(conversations, only_mark_preview),
             flags_to_add, flags_to_remove);
     }
-
+    
     private void on_conversation_viewer_mark_messages(Gee.Collection<Geary.EmailIdentifier> emails,
         Geary.EmailFlags? flags_to_add, Geary.EmailFlags? flags_to_remove) {
         mark_email(emails, flags_to_add, flags_to_remove);
