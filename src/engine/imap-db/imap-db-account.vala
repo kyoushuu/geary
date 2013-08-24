@@ -646,11 +646,24 @@ private class Geary.ImapDB.Account : BaseObject {
             string blacklisted_ids_sql = do_get_blacklisted_message_ids_sql(
                 folder_blacklist, cx, cancellable);
             
+            // Every mutation of this query we could think of has been tried,
+            // and this version was found to minimize running time.  We
+            // discovered that just doing a JOIN between the MessageTable and
+            // MessageSearchTable was causing a full table scan to order the
+            // results.  When it's written this way, and we force SQLite to use
+            // the correct index (not sure why it can't figure it out on its
+            // own), it cuts the running time roughly in half of how it was
+            // before.  The short version is: modify with extreme caution.  See
+            // <http://redmine.yorba.org/issues/7372>.
             string sql = """
                 SELECT id
-                FROM MessageSearchTable
-                JOIN MessageTable USING (id)
-                WHERE MessageSearchTable MATCH ?
+                FROM MessageTable
+                INDEXED BY MessageTableInternalDateTimeTIndex
+                WHERE id IN (
+                    SELECT id
+                    FROM MessageSearchTable
+                    WHERE MessageSearchTable MATCH ?
+                )
             """;
             if (blacklisted_ids_sql != "")
                 sql += " AND id NOT IN (%s)".printf(blacklisted_ids_sql);
